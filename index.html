@@ -1,127 +1,74 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0a1020">
-  <meta name="description" content="Sayeed Calculator — premium scientific calculator.">
-  <title>Sayeed Calculator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070a13">
+<title>Sayeed — Premium Calculator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:"DM Sans",system-ui,sans-serif}
+:root{--bg:#060912;--panel:rgba(14,19,32,.72);--panel2:rgba(20,27,45,.8);--txt:#f7f8ff;--muted:#8d98ae;--line:rgba(255,255,255,.09);--num:#151d31;--sci:#1a243b;--op:#202c49;--violet:#756cff;--cyan:#29d9ff;--pink:#ff5caa}
+body{background:var(--bg);color:var(--txt);overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 12% 8%,rgba(117,108,255,.24),transparent 30%),radial-gradient(circle at 90% 35%,rgba(41,217,255,.16),transparent 28%),radial-gradient(circle at 50% 110%,rgba(255,92,170,.12),transparent 30%);animation:bgPulse 8s ease-in-out infinite alternate}
+body:after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(#000,transparent 80%)}
+@keyframes bgPulse{from{filter:hue-rotate(0deg);transform:scale(1)}to{filter:hue-rotate(18deg);transform:scale(1.08)}}
+.wrap{position:relative;z-index:1;width:min(980px,calc(100% - 24px));margin:auto;padding:22px 0 34px}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font:700 25px "Space Grotesk";background:linear-gradient(135deg,var(--violet),var(--cyan));box-shadow:0 0 35px rgba(117,108,255,.35);position:relative;overflow:hidden}.logo:after{content:"";position:absolute;width:80px;height:20px;background:rgba(255,255,255,.35);transform:rotate(-45deg) translateX(-55px);animation:shine 3.2s infinite}@keyframes shine{35%,100%{transform:rotate(-45deg) translateX(80px)}}
+.brand h1{font:700 20px "Space Grotesk";margin:0}.brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:2px;margin-top:2px}.actions{display:flex;gap:7px}.icon{width:42px;height:42px;border-radius:13px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:18px;backdrop-filter:blur(18px);transition:.2s}.icon:active{transform:scale(.86)}
+.card{border:1px solid var(--line);border-radius:30px;padding:14px;background:var(--panel);backdrop-filter:blur(24px);box-shadow:0 30px 90px rgba(0,0,0,.45);animation:cardIn .7s cubic-bezier(.2,.8,.2,1)}@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+.display{min-height:218px;border-radius:23px;padding:16px 18px;background:linear-gradient(145deg,#070b16,#111a2d);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;position:relative;overflow:hidden}
+.display:after{content:"";position:absolute;right:-90px;bottom:-100px;width:280px;height:190px;background:var(--violet);filter:blur(90px);opacity:.18;animation:glow 4s ease-in-out infinite alternate}@keyframes glow{to{transform:translate(-50px,-20px);opacity:.28}}
+.displaybar{display:flex;gap:7px;align-items:center;z-index:1}.pill{font-size:10px;font-weight:800;letter-spacing:1px;padding:6px 9px;border-radius:8px;background:rgba(117,108,255,.16);color:#bdb9ff}.mem{font-size:10px;color:#66748e}.copy{margin-left:auto;border:0;border-radius:9px;padding:7px 10px;background:rgba(255,255,255,.06);color:#aab5ca;font-size:11px}
+.expr{margin-top:auto;text-align:right;color:#65738d;font-size:17px;min-height:25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.prev{text-align:right;color:#46536d;font-size:11px;min-height:17px}.result{position:relative;z-index:1;text-align:right;font:600 clamp(38px,7vw,62px) "Space Grotesk";letter-spacing:-2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.2s}.result.pop{animation:resultPop .32s}@keyframes resultPop{50%{transform:scale(1.035);text-shadow:0 0 32px rgba(117,108,255,.7)}}
+.controls{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0}.ctrl{flex:1;min-width:60px;height:39px;border:1px solid var(--line);border-radius:11px;background:var(--sci);color:#8f9bb2;font-weight:700;font-size:11px;transition:.2s}.ctrl.active,.ctrl:hover{background:linear-gradient(135deg,#7068ff,#367fe9);color:#fff;border-color:transparent;box-shadow:0 8px 24px rgba(90,91,255,.25)}.ctrl:active{transform:scale(.93)}
+.pad{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}.key{height:57px;border-radius:15px;border:1px solid var(--line);color:var(--txt);background:var(--num);font-weight:700;font-size:17px;box-shadow:inset 0 1px rgba(255,255,255,.04),0 5px 14px rgba(0,0,0,.12);transition:transform .11s,filter .15s,box-shadow .15s;position:relative;overflow:hidden}.key:before{content:"";position:absolute;width:10px;height:10px;border-radius:50%;left:50%;top:50%;background:rgba(255,255,255,.3);transform:translate(-50%,-50%) scale(0);opacity:0}.key:active:before{animation:ripple .45s ease-out}@keyframes ripple{0%{transform:translate(-50%,-50%) scale(0);opacity:.5}100%{transform:translate(-50%,-50%) scale(15);opacity:0}}
+.key:active{transform:scale(.9);filter:brightness(1.25);box-shadow:0 0 0 3px rgba(117,108,255,.12)}.sci{background:var(--sci);color:#aeb9d0;font-size:13px}.op{background:var(--op);color:#c8ccff}.fn{background:linear-gradient(145deg,#32223c,#25192f);color:#ff9bc4}.eq{grid-row:span 2;background:linear-gradient(145deg,#766dff,#337fe9);font-size:25px;box-shadow:0 12px 30px rgba(70,88,255,.32)}.zero{grid-column:span 2}.hint{display:flex;gap:8px;flex-wrap:wrap;color:#687590;font-size:10px;margin:12px 3px 0}.hint b{color:#d8def0}
+.history{margin-top:18px;border:1px solid var(--line);border-radius:23px;background:var(--panel);backdrop-filter:blur(20px);padding:20px}.head{display:flex;justify-content:space-between;align-items:end}.eyebrow{color:var(--cyan);font-size:9px;letter-spacing:2px;font-weight:800}.head h2{font:700 25px "Space Grotesk";margin:5px 0 0}.clear{border:1px solid var(--line);background:rgba(255,255,255,.05);color:#9ba6bc;padding:8px 11px;border-radius:9px;font-size:11px}.list{display:grid;gap:8px;margin-top:14px}.item{padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);transition:.2s;cursor:pointer}.item:hover{border-color:rgba(117,108,255,.5);transform:translateX(4px)}.ie{font-size:11px;color:#7c88a0}.ir{font-weight:800;margin-top:3px}.empty{text-align:center;padding:27px;color:#687590;font-size:12px}
+footer{text-align:center;color:#687590;font-size:10px;margin-top:16px}
+.toast{position:fixed;z-index:9;bottom:24px;left:50%;transform:translate(-50%,25px);opacity:0;background:#11192b;color:white;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12px;transition:.25s;box-shadow:0 15px 35px #0008}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:700px){.wrap{width:min(100% - 12px,540px);padding:10px 0 24px}.card{padding:10px;border-radius:24px}.display{min-height:188px;padding:14px;border-radius:19px}.pad{grid-template-columns:repeat(4,1fr);gap:7px}.key{height:55px}.eq{grid-column:4;grid-row:span 2}.zero{grid-column:span 2}.sci{font-size:12px}.history{padding:17px;border-radius:20px}.head h2{font-size:22px}}
+@media(max-width:380px){.key{height:51px}.result{font-size:35px}.logo{width:44px;height:44px}.brand h1{font-size:18px}}
+</style>
 </head>
 <body>
-  <div class="bg-orb orb-a"></div>
-  <div class="bg-orb orb-b"></div>
-  <div class="bg-grid"></div>
-
-  <main class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><span>S</span></div>
-        <div>
-          <div class="brand-name">Sayeed</div>
-          <div class="brand-sub">PRECISION CALCULATOR</div>
-        </div>
-      </div>
-      <div class="top-actions">
-        <button class="icon-btn" id="soundBtn" aria-label="Toggle sound" title="Sound">🔊</button>
-        <button class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Theme">☼</button>
-        <button class="icon-btn" id="historyBtn" aria-label="Show history" title="History">◷</button>
-      </div>
-    </header>
-
-    <section class="calculator-card">
-      <div class="display-wrap">
-        <div class="display-top">
-          <span class="mode-pill" id="angleMode">DEG</span>
-          <span class="display-status" id="memoryStatus">M: 0</span>
-          <button class="copy-btn" id="copyBtn" title="Copy result">Copy</button>
-        </div>
-        <div class="expression" id="expression">0</div>
-        <div class="preview" id="preview"></div>
-        <div class="result" id="result">0</div>
-        <div class="display-glow"></div>
-      </div>
-
-      <div class="toolbar">
-        <button class="tool-btn active" id="degBtn">DEG</button>
-        <button class="tool-btn" id="radBtn">RAD</button>
-        <button class="tool-btn" id="secondBtn">2nd</button>
-        <button class="tool-btn" id="memoryClear">MC</button>
-        <button class="tool-btn" id="memoryRecall">MR</button>
-        <button class="tool-btn" id="memoryAdd">M+</button>
-        <button class="tool-btn" id="memorySub">M−</button>
-      </div>
-
-      <div class="keypad" id="keypad">
-        <button class="key fn" data-action="clear">AC</button>
-        <button class="key fn" data-action="backspace">⌫</button>
-        <button class="key fn" data-value="%">%</button>
-        <button class="key op" data-value="÷">÷</button>
-        <button class="key sci" data-value="sin(">sin</button>
-        <button class="key sci" data-value="cos(">cos</button>
-        <button class="key sci" data-value="tan(">tan</button>
-        <button class="key sci" data-value="log(">log</button>
-        <button class="key sci" data-value="ln(">ln</button>
-        <button class="key sci" data-value="sqrt(">√</button>
-        <button class="key sci" data-value="π">π</button>
-        <button class="key sci" data-value="e">e</button>
-
-        <button class="key sci" data-value="^2">x²</button>
-        <button class="key sci" data-value="^3">x³</button>
-        <button class="key sci" data-value="!">x!</button>
-        <button class="key sci" data-value="(">(</button>
-        <button class="key sci" data-value=")">)</button>
-        <button class="key sci" data-value="abs(">abs</button>
-        <button class="key sci" data-value="inv(">1/x</button>
-        <button class="key op" data-value="×">×</button>
-
-        <button class="key num" data-value="7">7</button>
-        <button class="key num" data-value="8">8</button>
-        <button class="key num" data-value="9">9</button>
-        <button class="key op" data-value="−">−</button>
-
-        <button class="key num" data-value="4">4</button>
-        <button class="key num" data-value="5">5</button>
-        <button class="key num" data-value="6">6</button>
-        <button class="key op" data-value="+">+</button>
-
-        <button class="key num" data-value="1">1</button>
-        <button class="key num" data-value="2">2</button>
-        <button class="key num" data-value="3">3</button>
-        <button class="key equal" data-action="equals">=</button>
-
-        <button class="key num zero" data-value="0">0</button>
-        <button class="key num" data-value=".">.</button>
-      </div>
-
-      <div class="keyboard-hint">
-        <span>⌨ Keyboard</span>
-        <span>0–9</span><span>+ − × ÷</span><span>Enter</span><span>Backspace</span><span>Esc</span>
-      </div>
-    </section>
-
-    <section class="history-panel" id="historyPanel">
-      <div class="panel-head">
-        <div>
-          <div class="eyebrow">YOUR SPACE</div>
-          <h2>Calculation History</h2>
-        </div>
-        <button class="clear-history" id="clearHistory">Clear all</button>
-      </div>
-      <div id="historyList" class="history-list"></div>
-    </section>
-
-    <footer>
-      <span>© <span id="year"></span> Sayeed Calculator</span>
-      <span class="footer-dot">•</span>
-      <span>Fast · Private · Offline-ready</span>
-    </footer>
-  </main>
-
-  <div class="toast" id="toast"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+<div class="wrap">
+<header class="top"><div class="brand"><div class="logo">S</div><div><h1>Sayeed</h1><small>PREMIUM CALCULATOR</small></div></div><div class="actions"><button class="icon" id="sound">🔊</button><button class="icon" id="theme">☼</button><button class="icon" id="hist">◷</button></div></header>
+<section class="card">
+<div class="display"><div class="displaybar"><span class="pill" id="mode">DEG</span><span class="mem" id="mem">M: 0</span><button class="copy" id="copy">Copy</button></div><div class="expr" id="expr">0</div><div class="prev" id="prev">Ready</div><div class="result" id="result">0</div></div>
+<div class="controls"><button class="ctrl active" id="deg">DEG</button><button class="ctrl" id="rad">RAD</button><button class="ctrl" id="second">2nd</button><button class="ctrl" id="mc">MC</button><button class="ctrl" id="mr">MR</button><button class="ctrl" id="mp">M+</button><button class="ctrl" id="mm">M−</button></div>
+<div class="pad" id="pad">
+<button class="key fn" data-a="clear">AC</button><button class="key fn" data-a="back">⌫</button><button class="key fn" data-v="%">%</button><button class="key op" data-v="÷">÷</button><button class="key sci" data-v="sin(">sin</button><button class="key sci" data-v="cos(">cos</button><button class="key sci" data-v="tan(">tan</button><button class="key sci" data-v="log(">log</button>
+<button class="key sci" data-v="ln(">ln</button><button class="key sci" data-v="sqrt(">√</button><button class="key sci" data-v="π">π</button><button class="key sci" data-v="e">e</button><button class="key sci" data-v="^2">x²</button><button class="key sci" data-v="^3">x³</button><button class="key sci" data-v="!">x!</button><button class="key op" data-v="×">×</button>
+<button class="key sci" data-v="(">(</button><button class="key sci" data-v=")">)</button><button class="key sci" data-v="abs(">abs</button><button class="key sci" data-v="inv(">1/x</button><button class="key num" data-v="7">7</button><button class="key num" data-v="8">8</button><button class="key num" data-v="9">9</button><button class="key op" data-v="−">−</button>
+<button class="key num" data-v="4">4</button><button class="key num" data-v="5">5</button><button class="key num" data-v="6">6</button><button class="key op" data-v="+">+</button><button class="key num" data-v="1">1</button><button class="key num" data-v="2">2</button><button class="key num" data-v="3">3</button><button class="key eq" data-a="eq">=</button>
+<button class="key num zero" data-v="0">0</button><button class="key num" data-v=".">.</button>
+</div><div class="hint"><b>⌨ Keyboard</b><span>0–9</span><span>+ − × ÷</span><span>Enter</span><span>Backspace</span><span>Esc</span></div>
+</section>
+<section class="history" id="history"><div class="head"><div><div class="eyebrow">YOUR SPACE</div><h2>Calculation History</h2></div><button class="clear" id="clear">Clear all</button></div><div class="list" id="list"></div></section>
+<footer>© <span id="year"></span> Sayeed Calculator • Fast • Private • Offline-ready</footer>
+</div><div class="toast" id="toast"></div>
+<script>
+const q=s=>document.querySelector(s);let ex="",mem=+(localStorage.sayeedMem||0),ang="DEG",snd=localStorage.sayeedSound!=="off",hist=JSON.parse(localStorage.sayeedHistory||"[]");
+function beep(f=430){if(!snd)return;try{let A=AudioContext||webkitAudioContext,c=new A,o=c.createOscillator,g=c.createGain();o=o();g=g();o.frequency.value=f;g.gain.value=.025;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.055)}catch(e){}}
+function show(t){let x=q("#toast");x.textContent=t;x.classList.add("show");clearTimeout(window.z);window.z=setTimeout(()=>x.classList.remove("show"),1300)}
+function fact(n){if(!Number.isInteger(n)||n<0||n>170)throw Error("Invalid factorial");let r=1;for(let i=2;i<=n;i++)r*=i;return r}
+function trig(f,x){x=ang==="DEG"?x*Math.PI/180:x;return f==="sin"?Math.sin(x):f==="cos"?Math.cos(x):Math.tan(x)}
+function calc(s){let t=s.replaceAll("×","*").replaceAll("÷","/").replaceAll("−","-").replaceAll("π","Math.PI").replace(/(\d+(?:\.\d+)?)!/g,"fact($1)").replace(/\^2/g,"**2").replace(/\^3/g,"**3").replace(/sqrt\(/g,"Math.sqrt(").replace(/log\(/g,"Math.log10(").replace(/ln\(/g,"Math.log(").replace(/abs\(/g,"Math.abs(").replace(/sin\(/g,"trig('sin',").replace(/cos\(/g,"trig('cos',").replace(/tan\(/g,"trig('tan',").replace(/(\d+(?:\.\d+)?)%/g,"($1/100)").replace(/\be\b/g,"Math.E");if(!/^[0-9A-Za-z_+*/().,\s'"*\-]+$/.test(t))throw Error("Invalid input");return Function("trig","fact","return ("+t+")")(trig,fact)}
+function fmt(n){if(!Number.isFinite(n))throw Error("Math error");return Number(n.toPrecision(12)).toString()}
+function update(){q("#expr").textContent=ex||"0";q("#mem").textContent="M: "+fmt(mem);try{q("#result").textContent=fmt(calc(ex));q("#prev").textContent=ex?"Preview":"Ready"}catch(e){q("#result").textContent=ex?"…":"0";q("#prev").textContent=ex?"":"Ready"}}
+function add(v){ex+=v;update();beep()}
+function equal(){try{let r=fmt(calc(ex));if(!ex)return;hist.unshift({e:ex,r});hist=hist.slice(0,40);localStorage.sayeedHistory=JSON.stringify(hist);ex=r;q("#result").textContent=r;q("#prev").textContent="Calculated";q("#result").classList.remove("pop");void q("#result").offsetWidth;q("#result").classList.add("pop");render();beep(720)}catch(e){q("#result").textContent="Error";q("#prev").textContent=e.message;beep(180);setTimeout(update,800)}}
+function render(){q("#list").innerHTML=hist.length?hist.map((h,i)=>`<div class="item" data-i="${i}"><div class="ie">${h.e}</div><div class="ir">= ${h.r}</div></div>`).join(""):'<div class="empty">No calculations yet.<br><br>Your recent results will appear here.</div>'}
+q("#pad").onclick=e=>{let b=e.target.closest("button");if(!b)return;if(b.dataset.a==="clear"){ex="";update()}else if(b.dataset.a==="back"){ex=ex.slice(0,-1);update()}else if(b.dataset.a==="eq")equal();else add(b.dataset.v);b.animate([{transform:"scale(.9)"},{transform:"scale(1)"}],{duration:180,easing:"ease-out"});beep()};
+q("#deg").onclick=()=>{ang="DEG";q("#deg").classList.add("active");q("#rad").classList.remove("active");q("#mode").textContent="DEG";update();beep()};q("#rad").onclick=()=>{ang="RAD";q("#rad").classList.add("active");q("#deg").classList.remove("active");q("#mode").textContent="RAD";update();beep()};
+q("#copy").onclick=async()=>{try{await navigator.clipboard.writeText(q("#result").textContent);show("Result copied");beep(650)}catch(e){show("Copy unavailable")}};
+q("#mc").onclick=()=>{mem=0;localStorage.sayeedMem=0;update();show("Memory cleared")};q("#mr").onclick=()=>add(fmt(mem));q("#mp").onclick=()=>{try{mem+=calc(ex);localStorage.sayeedMem=mem;update();show("M+ saved");beep(600)}catch(e){show("Invalid value")}};q("#mm").onclick=()=>{try{mem-=calc(ex);localStorage.sayeedMem=mem;update();show("M− saved");beep(600)}catch(e){show("Invalid value")}};
+q("#clear").onclick=()=>{hist=[];localStorage.removeItem("sayeedHistory");render();show("History cleared")};q("#list").onclick=e=>{let i=e.target.closest(".item");if(i){ex=hist[+i.dataset.i].e;update();show("Expression restored")}};
+q("#hist").onclick=()=>q("#history").scrollIntoView({behavior:"smooth"});q("#sound").onclick=()=>{snd=!snd;localStorage.sayeedSound=snd?"on":"off";q("#sound").textContent=snd?"🔊":"🔇";if(snd)beep()};
+q("#theme").onclick=()=>{show("Premium dark theme");beep(550)};
+document.onkeydown=e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;let k=e.key;if(/[0-9.]/.test(k))add(k);else if("+-*/()%".includes(k)){e.preventDefault();add(k==="*"?"×":k==="/"?"÷":k==="- "?"−":k)}else if(k==="Enter"||k==="="){e.preventDefault();equal()}else if(k==="Backspace"){e.preventDefault();ex=ex.slice(0,-1);update()}else if(k==="Escape"){ex="";update()}};
+q("#sound").textContent=snd?"🔊":"🔇";q("#year").textContent=new Date().getFullYear();render();update();
+</script>
+</body></html>
