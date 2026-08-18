@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="description" content="Sayeed Calculator — a premium scientific calculator for web and mobile." />
+  <title>Sayeed Calculator</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="grid-noise"></div>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <div>
+          <div class="brand-name">Sayeed</div>
+          <div class="brand-sub">Calculator</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">☼</button>
+        <button class="icon-btn" id="historyBtn" title="Open history" aria-label="Open history">◷</button>
+      </div>
+    </header>
+
+    <section class="calculator-grid">
+      <div class="calculator-card glass">
+        <div class="display-panel">
+          <div class="display-topline">
+            <span id="modeBadge">DEG</span>
+            <span id="memoryBadge" class="memory-badge hidden">M</span>
+            <span class="display-hint" id="displayHint">Ready</span>
+          </div>
+          <div class="expression" id="expression" aria-live="polite">0</div>
+          <div class="result-row">
+            <button class="copy-btn" id="copyBtn" title="Copy result" aria-label="Copy result">⧉</button>
+            <div class="result" id="result" aria-live="polite">0</div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="tool-btn active" data-action="mode" id="modeBtn">DEG</button>
+          <button class="tool-btn" data-action="inverse" id="inverseBtn">2nd</button>
+          <button class="tool-btn" data-action="memory-clear">MC</button>
+          <button class="tool-btn" data-action="memory-recall">MR</button>
+          <button class="tool-btn" data-action="memory-add">M+</button>
+          <button class="tool-btn" data-action="memory-sub">M−</button>
+        </div>
+
+        <div class="scientific-grid" id="scientificGrid">
+          <button class="sci-btn" data-fn="sin">sin</button>
+          <button class="sci-btn" data-fn="cos">cos</button>
+          <button class="sci-btn" data-fn="tan">tan</button>
+          <button class="sci-btn" data-fn="log">log</button>
+          <button class="sci-btn" data-fn="ln">ln</button>
+          <button class="sci-btn" data-fn="sqrt">√</button>
+          <button class="sci-btn" data-value="π">π</button>
+          <button class="sci-btn" data-value="e">e</button>
+          <button class="sci-btn" data-fn="square">x²</button>
+          <button class="sci-btn" data-fn="cube">x³</button>
+          <button class="sci-btn" data-value="(">(</button>
+          <button class="sci-btn" data-value=")">)</button>
+        </div>
+
+        <div class="keypad" id="keypad">
+          <button class="key key-muted" data-action="clear">AC</button>
+          <button class="key key-muted" data-action="delete">DEL</button>
+          <button class="key key-muted" data-action="percent">%</button>
+          <button class="key operator" data-value="÷">÷</button>
+
+          <button class="key" data-value="7">7</button>
+          <button class="key" data-value="8">8</button>
+          <button class="key" data-value="9">9</button>
+          <button class="key operator" data-value="×">×</button>
+
+          <button class="key" data-value="4">4</button>
+          <button class="key" data-value="5">5</button>
+          <button class="key" data-value="6">6</button>
+          <button class="key operator" data-value="−">−</button>
+
+          <button class="key" data-value="1">1</button>
+          <button class="key" data-value="2">2</button>
+          <button class="key" data-value="3">3</button>
+          <button class="key operator" data-value="+">+</button>
+
+          <button class="key zero" data-value="0">0</button>
+          <button class="key" data-value=".">.</button>
+          <button class="key equal" data-action="equals">=</button>
+        </div>
+
+        <div class="shortcut-tip">Keyboard: <span>0–9</span> <span>+</span><span>−</span><span>×</span><span>÷</span> <span>Enter</span> <span>Backspace</span> <span>Esc</span></div>
+      </div>
+
+      <aside class="side-card glass">
+        <div class="side-head">
+          <div>
+            <p class="eyebrow">YOUR SPACE</p>
+            <h2>Calculation History</h2>
+          </div>
+          <button class="clear-history" id="clearHistoryBtn">Clear</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty" id="historyEmpty">
+            <div class="empty-icon">✦</div>
+            <p>No calculations yet.</p>
+            <span>Your recent results will appear here.</span>
+          </div>
+        </div>
+        <div class="side-footer">Saved locally on this device</div>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> Sayeed Calculator</span>
+      <span class="dot">•</span>
+      <span>Fast · Private · Offline-ready</span>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
+
