@@ -82,3 +82,69 @@ function open(){
 }
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",open,{once:true}):open();
 })();
+/* =========================================================
+   SAYEED PRO+ MOBILE KEYBOARD FIX
+   Does NOT remove or change existing features
+   ========================================================= */
+
+(function () {
+    'use strict';
+
+    // Hide keyboard when Calculate button is pressed
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest(
+            '.calculate-btn, #calculateBtn, button[type="submit"]'
+        );
+
+        if (btn) {
+            setTimeout(() => {
+                if (document.activeElement) {
+                    document.activeElement.blur();
+                }
+            }, 100);
+        }
+    });
+
+    // Hide keyboard when clicking outside an input
+    document.addEventListener('pointerdown', function (e) {
+        const active = document.activeElement;
+
+        if (
+            active &&
+            (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+            !e.target.closest('input, textarea, select, button')
+        ) {
+            active.blur();
+        }
+    });
+
+    // Hide keyboard when modal closes
+    document.addEventListener('click', function (e) {
+        const closeBtn = e.target.closest(
+            '.close, .modal-close, #closeModal, [data-close], [aria-label="Close"]'
+        );
+
+        if (closeBtn) {
+            const active = document.activeElement;
+
+            if (active) {
+                active.blur();
+            }
+
+            window.scrollTo({
+                top: window.scrollY,
+                behavior: 'instant'
+            });
+        }
+    });
+
+    // Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        }
+    });
+
+})();
