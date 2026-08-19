@@ -438,3 +438,45 @@ header p,
     }
 
 }
+/* =========================================================
+   MOBILE KEYBOARD / INPUT OVERFLOW FIX
+   ========================================================= */
+
+html,
+body {
+    overflow-x: hidden;
+}
+
+input,
+textarea,
+select {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Keep Pro+ modal usable above mobile keyboard */
+.modal,
+.tools-modal,
+.pro-tools-modal {
+    max-height: 90dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+
+    .modal,
+    .tools-modal,
+    .pro-tools-modal {
+        max-height: calc(100dvh - 20px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal input,
+    .tools-modal input,
+    .pro-tools-modal input {
+        font-size: 16px;
+    }
+}
