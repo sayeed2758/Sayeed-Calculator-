@@ -1,20 +1,22 @@
-/* Sayeed Calculator — Advanced Engine v2
-   Clean, dependency-free, GitHub Pages / PWA friendly.
-   Works with the current index.html without requiring XML/Android files.
-*/
+/* =========================================================
+   SAYEED CALCULATOR — ADVANCED ENGINE v3
+   Safe parser • history search/export • memory • PWA
+   ========================================================= */
 (() => {
   "use strict";
 
-  const $ = (selector) => document.querySelector(selector);
-  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
 
-  const els = {
+  const el = {
     expression: $("#expression"),
     result: $("#result"),
     state: $("#displayState"),
     memory: $("#memoryText"),
     keypad: $("#keypad"),
     historyList: $("#historyList"),
+    historySearch: $("#historySearch"),
+    historyCount: $("#historyCount"),
     historySection: $("#historySection"),
     toast: $("#toast"),
     year: $("#year"),
@@ -32,7 +34,7 @@
     clearHistory: $("#clearHistoryBtn")
   };
 
-  const STORAGE = Object.freeze({
+  const KEY = Object.freeze({
     memory: "sayeed_memory",
     angle: "sayeed_angle",
     sound: "sayeed_sound",
@@ -42,14 +44,16 @@
     second: "sayeed_second"
   });
 
-  const readNumber = (key, fallback = 0) => {
+  const MAX_HISTORY = 100;
+
+  const num = (key, fallback = 0) => {
     const n = Number(localStorage.getItem(key));
     return Number.isFinite(n) ? n : fallback;
   };
 
-  const safeJson = (key, fallback) => {
+  const json = (key, fallback) => {
     try {
-      const value = JSON.parse(localStorage.getItem(key) || "");
+      const value = JSON.parse(localStorage.getItem(key) || "null");
       return value ?? fallback;
     } catch {
       return fallback;
@@ -57,106 +61,89 @@
   };
 
   let expr = "";
-  let memory = readNumber(STORAGE.memory, 0);
-  let angle = localStorage.getItem(STORAGE.angle) === "RAD" ? "RAD" : "DEG";
-  let sound = localStorage.getItem(STORAGE.sound) !== "off";
-  let second = localStorage.getItem(STORAGE.second) === "on";
-  let lastAnswer = readNumber(STORAGE.answer, 0);
-  let history = safeJson(STORAGE.history, []);
+  let memory = num(KEY.memory);
+  let angle = localStorage.getItem(KEY.angle) === "RAD" ? "RAD" : "DEG";
+  let sound = localStorage.getItem(KEY.sound) !== "off";
+  let second = localStorage.getItem(KEY.second) === "on";
+  let lastAnswer = num(KEY.answer);
+  let history = json(KEY.history, []);
+
   if (!Array.isArray(history)) history = [];
 
-  const MAX_HISTORY = 100;
+  let filteredHistory = history;
+  let audioContext = null;
 
   function save(key, value) {
-    try {
-      localStorage.setItem(key, String(value));
-    } catch {}
+    try { localStorage.setItem(key, String(value)); } catch {}
   }
 
-  function saveJson(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   }
 
   function format(value) {
     if (!Number.isFinite(value)) throw new Error("Math error");
     if (Math.abs(value) < 1e-12) value = 0;
-
-    const abs = Math.abs(value);
-    if (abs !== 0 && (abs >= 1e12 || abs < 1e-9)) {
-      return Number(value.toPrecision(12)).toString();
-    }
-
     return Number(value.toPrecision(12)).toString();
   }
 
-  function escapeHtml(value) {
+  function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
     }[c]));
   }
 
   function toast(message) {
-    if (!els.toast) return;
-    els.toast.textContent = message;
-    els.toast.classList.add("show");
+    if (!el.toast) return;
+    el.toast.textContent = message;
+    el.toast.classList.add("show");
     clearTimeout(window.__sayeedToast);
-    window.__sayeedToast = setTimeout(() => {
-      els.toast.classList.remove("show");
-    }, 1400);
+    window.__sayeedToast = setTimeout(() => el.toast.classList.remove("show"), 1500);
   }
 
-  function vibrate(ms = 7) {
-    try {
-      if (navigator.vibrate) navigator.vibrate(ms);
-    } catch {}
+  function vibrate(ms = 6) {
+    try { navigator.vibrate?.(ms); } catch {}
   }
-
-  let audioContext = null;
 
   function beep(kind = "key") {
     if (!sound) return;
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      audioContext ||= new AudioCtx();
 
-      if (audioContext.state === "suspended") {
-        audioContext.resume().catch(() => {});
-      }
+      audioContext ||= new AudioCtx();
+      if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
 
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
       const now = audioContext.currentTime;
 
       oscillator.type = kind === "equal" ? "sine" : "triangle";
-      oscillator.frequency.value = kind === "equal" ? 720 : kind === "error" ? 180 : 430;
+      oscillator.frequency.value =
+        kind === "equal" ? 720 : kind === "error" ? 180 : 430;
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(kind === "equal" ? 0.035 : 0.018, now + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+      gain.gain.exponentialRampToValueAtTime(
+        kind === "equal" ? 0.035 : 0.018, now + 0.006
+      );
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
 
       oscillator.connect(gain);
       gain.connect(audioContext.destination);
       oscillator.start(now);
-      oscillator.stop(now + 0.065);
+      oscillator.stop(now + 0.07);
     } catch {}
   }
 
   function tap(button) {
+    button?.classList.remove("tap");
     if (!button) return;
-    button.classList.remove("tap");
     void button.offsetWidth;
     button.classList.add("tap");
-    setTimeout(() => button.classList.remove("tap"), 120);
+    setTimeout(() => button.classList.remove("tap"), 130);
   }
 
-  /* ---------- Math engine: no eval(), no Function() ---------- */
+  /* ---------------- Safe recursive parser ---------------- */
 
   class Parser {
     constructor(input) {
@@ -168,13 +155,11 @@
       this.i = 0;
     }
 
-    peek() {
-      return this.input[this.i] || "";
-    }
+    peek() { return this.input[this.i] || ""; }
 
-    consume(char) {
-      if (this.input.startsWith(char, this.i)) {
-        this.i += char.length;
+    consume(token) {
+      if (this.input.startsWith(token, this.i)) {
+        this.i += token.length;
         return true;
       }
       return false;
@@ -186,101 +171,78 @@
 
     parse() {
       if (!this.input) return 0;
-      const value = this.parseExpression();
+      const value = this.expression();
       if (this.i !== this.input.length) this.error();
+      if (!Number.isFinite(value)) this.error("Math error");
       return value;
     }
 
-    parseExpression() {
-      let value = this.parseTerm();
-
+    expression() {
+      let value = this.term();
       while (true) {
-        if (this.consume("+")) {
-          value += this.parseTerm();
-        } else if (this.consume("-")) {
-          value -= this.parseTerm();
-        } else {
-          break;
-        }
+        if (this.consume("+")) value += this.term();
+        else if (this.consume("-")) value -= this.term();
+        else break;
       }
-
       return value;
     }
 
-    parseTerm() {
-      let value = this.parsePower();
-
+    term() {
+      let value = this.power();
       while (true) {
-        if (this.consume("*")) {
-          value *= this.parsePower();
-        } else if (this.consume("/")) {
-          const divisor = this.parsePower();
+        if (this.consume("*")) value *= this.power();
+        else if (this.consume("/")) {
+          const divisor = this.power();
           if (Math.abs(divisor) < Number.EPSILON) this.error("Cannot divide by zero");
           value /= divisor;
-        } else {
-          break;
-        }
+        } else break;
       }
-
       return value;
     }
 
-    parsePower() {
-      let base = this.parseUnary();
-      if (this.consume("^")) {
-        const exponent = this.parsePower();
-        base = Math.pow(base, exponent);
-      }
+    power() {
+      const base = this.unary();
+      if (this.consume("^")) return Math.pow(base, this.power());
       return base;
     }
 
-    parseUnary() {
-      if (this.consume("+")) return +this.parseUnary();
-      if (this.consume("-")) return -this.parseUnary();
-
-      let value = this.parsePostfix();
-      return value;
+    unary() {
+      if (this.consume("+")) return this.unary();
+      if (this.consume("-")) return -this.unary();
+      return this.postfix();
     }
 
-    parsePostfix() {
-      let value = this.parsePrimary();
-
+    postfix() {
+      let value = this.primary();
       while (true) {
-        if (this.consume("!")) {
-          value = factorial(value);
-        } else if (this.consume("%")) {
-          value /= 100;
-        } else {
-          break;
-        }
+        if (this.consume("!")) value = factorial(value);
+        else if (this.consume("%")) value /= 100;
+        else break;
       }
-
       return value;
     }
 
-    parsePrimary() {
-      const ch = this.peek();
+    primary() {
+      const c = this.peek();
 
-      if (ch === "(") {
+      if (c === "(") {
         this.i++;
-        const value = this.parseExpression();
+        const value = this.expression();
         if (!this.consume(")")) this.error("Missing )");
         return value;
       }
 
-      if (/[0-9.]/.test(ch)) {
-        return this.parseNumber();
-      }
+      if (/[0-9.]/.test(c)) return this.number();
 
-      if (/[A-Za-z_]/.test(ch)) {
-        const name = this.parseIdentifier();
+      if (/[A-Za-z_]/.test(c)) {
+        const name = this.identifier();
 
         if (name === "PI") return Math.PI;
         if (name === "E") return Math.E;
         if (name === "ANS") return lastAnswer;
 
         if (!this.consume("(")) this.error("Unknown value");
-        const argument = this.parseExpression();
+        const argument = this.expression();
         if (!this.consume(")")) this.error("Missing )");
 
         return callFunction(name, argument);
@@ -289,26 +251,24 @@
       this.error();
     }
 
-    parseNumber() {
+    number() {
       const start = this.i;
-      let hasDigit = false;
-      let hasDot = false;
+      let digits = false;
+      let dot = false;
 
       while (this.i < this.input.length) {
-        const ch = this.input[this.i];
+        const c = this.input[this.i];
 
-        if (/[0-9]/.test(ch)) {
-          hasDigit = true;
+        if (/[0-9]/.test(c)) {
+          digits = true;
           this.i++;
-        } else if (ch === "." && !hasDot) {
-          hasDot = true;
+        } else if (c === "." && !dot) {
+          dot = true;
           this.i++;
-        } else {
-          break;
-        }
+        } else break;
       }
 
-      if (!hasDigit) this.error("Invalid number");
+      if (!digits) this.error("Invalid number");
 
       if (this.peek() === "e" || this.peek() === "E") {
         const exponentStart = this.i;
@@ -316,22 +276,18 @@
 
         if (this.peek() === "+" || this.peek() === "-") this.i++;
 
-        const expDigitsStart = this.i;
+        const digitStart = this.i;
         while (/[0-9]/.test(this.peek())) this.i++;
 
-        if (this.i === expDigitsStart) {
-          this.i = exponentStart;
-        }
+        if (digitStart === this.i) this.i = exponentStart;
       }
 
-      const raw = this.input.slice(start, this.i);
-      const value = Number(raw);
-
+      const value = Number(this.input.slice(start, this.i));
       if (!Number.isFinite(value)) this.error("Invalid number");
       return value;
     }
 
-    parseIdentifier() {
+    identifier() {
       const start = this.i;
       while (/[A-Za-z_]/.test(this.peek())) this.i++;
       return this.input.slice(start, this.i);
@@ -339,7 +295,7 @@
   }
 
   function factorial(value) {
-    if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+    if (!Number.isInteger(value) || value < 0) {
       throw new Error("Factorial needs a non-negative integer");
     }
     if (value > 170) throw new Error("Factorial too large");
@@ -349,48 +305,30 @@
     return result;
   }
 
-  function toRadians(value) {
-    return angle === "DEG" ? value * Math.PI / 180 : value;
+  function toRad(v) {
+    return angle === "DEG" ? v * Math.PI / 180 : v;
   }
 
-  function fromRadians(value) {
-    return angle === "DEG" ? value * 180 / Math.PI : value;
-  }
-
-  function trig(name, value) {
-    const r = toRadians(value);
-
-    if (name === "sin") return Math.sin(r);
-    if (name === "cos") return Math.cos(r);
-    if (name === "tan") {
-      const c = Math.cos(r);
-      if (Math.abs(c) < 1e-12) throw new Error("Undefined tangent");
-      return Math.tan(r);
-    }
-
-    if (name === "asin") {
-      if (value < -1 || value > 1) throw new Error("asin domain error");
-      return fromRadians(Math.asin(value));
-    }
-
-    if (name === "acos") {
-      if (value < -1 || value > 1) throw new Error("acos domain error");
-      return fromRadians(Math.acos(value));
-    }
-
-    if (name === "atan") return fromRadians(Math.atan(value));
-
-    throw new Error("Unknown function");
+  function fromRad(v) {
+    return angle === "DEG" ? v * 180 / Math.PI : v;
   }
 
   function callFunction(name, value) {
     switch (name) {
-      case "sin": return trig("sin", value);
-      case "cos": return trig("cos", value);
-      case "tan": return trig("tan", value);
-      case "asin": return trig("asin", value);
-      case "acos": return trig("acos", value);
-      case "atan": return trig("atan", value);
+      case "sin": return Math.sin(toRad(value));
+      case "cos": return Math.cos(toRad(value));
+      case "tan": {
+        const r = toRad(value);
+        if (Math.abs(Math.cos(r)) < 1e-12) throw new Error("Undefined tangent");
+        return Math.tan(r);
+      }
+      case "asin":
+        if (value < -1 || value > 1) throw new Error("asin domain error");
+        return fromRad(Math.asin(value));
+      case "acos":
+        if (value < -1 || value > 1) throw new Error("acos domain error");
+        return fromRad(Math.acos(value));
+      case "atan": return fromRad(Math.atan(value));
       case "sqrt":
         if (value < 0) throw new Error("√ domain error");
         return Math.sqrt(value);
@@ -400,52 +338,72 @@
       case "ln":
         if (value <= 0) throw new Error("ln domain error");
         return Math.log(value);
-      case "abs":
-        return Math.abs(value);
+      case "abs": return Math.abs(value);
       case "inv":
         if (Math.abs(value) < Number.EPSILON) throw new Error("Cannot divide by zero");
         return 1 / value;
-      case "exp":
-        return Math.exp(value);
-      case "pow10":
-        return Math.pow(10, value);
-      case "powE":
-        return Math.exp(value);
       default:
         throw new Error("Unknown function");
     }
   }
 
-  function calculate(expression) {
-    const value = new Parser(expression).parse();
-    if (!Number.isFinite(value)) throw new Error("Math error");
-    return value;
+  function calculate(text) {
+    return new Parser(text).parse();
   }
 
-  /* ---------- Expression editing ---------- */
+  /* ---------------- Display ---------------- */
 
-  function isValueEnding(text) {
-    return /(?:[0-9.)%!]$|π$|e$|ANS$)/.test(text);
+  function update(forcedState = null) {
+    if (el.expression) el.expression.textContent = expr || "0";
+    if (el.memory) el.memory.textContent = `M: ${format(memory)}`;
+
+    if (!expr) {
+      if (el.result) el.result.textContent = "0";
+      if (el.state) el.state.textContent = "Ready";
+      return;
+    }
+
+    try {
+      if (el.result) el.result.textContent = format(calculate(expr));
+      if (el.state) el.state.textContent = forcedState || "Preview";
+    } catch {
+      if (el.result) el.result.textContent = "…";
+      if (el.state) el.state.textContent = forcedState || "Editing";
+    }
   }
 
-  function isValueStarting(text) {
-    return /^(?:[0-9.(]|π|e|A)/.test(text);
+  function error(message) {
+    if (el.result) el.result.textContent = "Error";
+    if (el.state) el.state.textContent = message;
+
+    const display = $(".display");
+    display?.classList.remove("shake");
+    if (display) {
+      void display.offsetWidth;
+      display.classList.add("shake");
+    }
+
+    beep("error");
+    vibrate(18);
+  }
+
+  /* ---------------- Input ---------------- */
+
+  function valueEnds(text) {
+    return /(?:[0-9.)%!]|π|e)$/.test(text) || text.endsWith("ANS");
+  }
+
+  function valueStarts(value) {
+    return /^(?:[0-9.(]|π|e|A)/.test(value);
   }
 
   function appendValue(value) {
     if (!value) return;
 
-    const previous = expr.slice(-1);
+    if (valueEnds(expr) && valueStarts(value)) expr += "×";
 
-    // Implicit multiplication: 2π, 2(, 2sin(
-    if (isValueEnding(expr) && isValueStarting(value)) {
-      expr += "×";
-    }
+    if (value === "." && /(?:^|[+−×÷^(])\d*\.$/.test(expr)) return;
 
-    // Avoid duplicate decimal points in the same number.
-    if (value === "." && /(?:^|[+\-×÷^(])\d*\.$/.test(expr)) return;
-
-    // Avoid accidental duplicate binary operators.
     if (/^[+×÷]$/.test(value) && /[+×÷]$/.test(expr)) {
       expr = expr.slice(0, -1) + value;
     } else if (value === "−" && /[+×÷−]$/.test(expr)) {
@@ -455,6 +413,38 @@
     }
 
     update();
+  }
+
+  function functionInput(name) {
+    const normal = {
+      sin: "sin(", cos: "cos(", tan: "tan(",
+      log: "log(", ln: "ln(", sqrt: "sqrt(",
+      abs: "abs(", inv: "inv("
+    };
+
+    const inverse = {
+      sin: "asin(", cos: "acos(", tan: "atan("
+    };
+
+    const value = second && inverse[name] ? inverse[name] : normal[name];
+    if (!value) return;
+
+    if (valueEnds(expr)) expr += "×";
+    expr += value;
+    update();
+    beep();
+  }
+
+  function postfix(action) {
+    if (!expr) return toast("Enter a value first");
+
+    if (action === "square") expr += "^2";
+    if (action === "cube") expr += "^3";
+    if (action === "factorial") expr += "!";
+
+    update();
+    beep();
+    vibrate();
   }
 
   function clearExpression() {
@@ -471,120 +461,45 @@
     beep();
   }
 
-  function appendFunction(name) {
-    const map = {
-      sin: "sin(",
-      cos: "cos(",
-      tan: "tan(",
-      log: "log(",
-      ln: "ln(",
-      sqrt: "sqrt(",
-      abs: "abs(",
-      inv: "inv(",
-      asin: "asin(",
-      acos: "acos(",
-      atan: "atan("
-    };
-
-    const value = map[name];
-    if (!value) return;
-
-    if (isValueEnding(expr)) expr += "×";
-    expr += value;
-    update();
-    beep();
-  }
-
-  function postfix(action) {
-    if (!expr) {
-      toast("Enter a value first");
-      return;
-    }
-
-    if (action === "square") expr += "^2";
-    if (action === "cube") expr += "^3";
-    if (action === "factorial") expr += "!";
-
-    update();
-    beep();
-    vibrate();
-  }
-
   function equal() {
     if (!expr.trim()) return;
 
     try {
-      const numeric = calculate(expr);
-      const result = format(numeric);
+      const value = calculate(expr);
+      const result = format(value);
 
       history.unshift({
         e: expr,
         r: result,
         t: Date.now()
       });
-      history = history.slice(0, MAX_HISTORY);
-      saveJson(STORAGE.history, history);
 
-      lastAnswer = numeric;
-      save(STORAGE.answer, numeric);
+      history = history.slice(0, MAX_HISTORY);
+      saveJSON(KEY.history, history);
+
+      lastAnswer = value;
+      save(KEY.answer, value);
 
       expr = result;
       update("Calculated");
-
-      if (els.result) {
-        els.result.classList.remove("pulse");
-        void els.result.offsetWidth;
-        els.result.classList.add("pulse");
-      }
-
       renderHistory();
+
+      el.result?.classList.remove("pulse");
+      void el.result?.offsetWidth;
+      el.result?.classList.add("pulse");
+
       beep("equal");
       vibrate(10);
-    } catch (error) {
-      showError(error?.message || "Invalid expression");
+    } catch (e) {
+      error(e?.message || "Invalid expression");
     }
   }
 
-  function showError(message) {
-    if (els.result) els.result.textContent = "Error";
-    if (els.state) els.state.textContent = message;
-
-    const display = $(".display");
-    if (display) {
-      display.classList.remove("shake");
-      void display.offsetWidth;
-      display.classList.add("shake");
-    }
-
-    beep("error");
-    vibrate(20);
-  }
-
-  function update(forcedState = null) {
-    if (els.expression) els.expression.textContent = expr || "0";
-    if (els.memory) els.memory.textContent = `M: ${format(memory)}`;
-
-    if (!expr) {
-      if (els.result) els.result.textContent = "0";
-      if (els.state) els.state.textContent = "Ready";
-      return;
-    }
-
-    try {
-      const value = calculate(expr);
-      if (els.result) els.result.textContent = format(value);
-      if (els.state) els.state.textContent = forcedState || "Preview";
-    } catch {
-      if (els.result) els.result.textContent = "…";
-      if (els.state) els.state.textContent = forcedState || "Editing";
-    }
-  }
-
-  /* ---------- Memory ---------- */
+  /* ---------------- Memory ---------------- */
 
   function memoryClear() {
     memory = 0;
-    save(STORAGE.memory, memory);
+    save(KEY.memory, memory);
     update();
     toast("Memory cleared");
     beep();
@@ -595,11 +510,11 @@
     toast("Memory recalled");
   }
 
-  function memoryAdd(sign = 1) {
+  function memoryChange(sign) {
     try {
       const value = expr ? calculate(expr) : lastAnswer;
       memory += sign * value;
-      save(STORAGE.memory, memory);
+      save(KEY.memory, memory);
       update();
       toast(sign > 0 ? "Added to memory" : "Subtracted from memory");
       beep();
@@ -609,136 +524,183 @@
     }
   }
 
-  /* ---------- History ---------- */
+  /* ---------------- History ---------------- */
+
+  function getHistoryQuery() {
+    return (el.historySearch?.value || "").trim().toLowerCase();
+  }
+
+  function updateHistoryCount() {
+    if (!el.historyCount) return;
+    const n = filteredHistory.length;
+    el.historyCount.textContent = `${n} calculation${n === 1 ? "" : "s"}`;
+  }
 
   function renderHistory() {
-    if (!els.historyList) return;
+    const query = getHistoryQuery();
 
-    if (!history.length) {
-      els.historyList.innerHTML =
-        '<div class="empty">No calculations yet.<br><br>Your recent results will appear here.</div>';
+    filteredHistory = history.filter((item) => {
+      if (!query) return true;
+      return `${item.e} ${item.r}`.toLowerCase().includes(query);
+    });
+
+    updateHistoryCount();
+
+    if (!el.historyList) return;
+
+    if (!filteredHistory.length) {
+      el.historyList.innerHTML = `
+        <div class="empty">
+          ${query ? "No matching calculations." : "No calculations yet."}
+        </div>
+      `;
       return;
     }
 
-    els.historyList.innerHTML = history.map((item, index) => `
-      <div class="history-item" data-index="${index}" role="button" tabindex="0">
-        <div class="history-exp">${escapeHtml(item.e)}</div>
-        <div class="history-result">= ${escapeHtml(item.r)}</div>
+    el.historyList.innerHTML = filteredHistory.map((item, index) => `
+      <div class="history-item" data-history-index="${index}" role="button" tabindex="0">
+        <div class="history-exp">${escapeHTML(item.e)}</div>
+        <div class="history-result">= ${escapeHTML(item.r)}</div>
       </div>
     `).join("");
   }
 
-  function clearHistory() {
-    history = [];
-    saveJson(STORAGE.history, history);
-    renderHistory();
-    toast("History cleared");
-    beep();
-  }
-
   function restoreHistory(index) {
-    const item = history[index];
+    const item = filteredHistory[index];
     if (!item) return;
+
     expr = item.e;
     update();
     toast("Expression restored");
     beep();
   }
 
-  function deleteHistory(index) {
-    if (!history[index]) return;
-    history.splice(index, 1);
-    saveJson(STORAGE.history, history);
+  function clearHistory() {
+    history = [];
+    filteredHistory = [];
+    saveJSON(KEY.history, history);
     renderHistory();
-    toast("Calculation deleted");
+    toast("History cleared");
     beep();
   }
 
-  /* ---------- UI state ---------- */
+  function exportHistory() {
+    if (!history.length) {
+      toast("No history to export");
+      return;
+    }
 
-  function setAngle(mode) {
-    angle = mode === "RAD" ? "RAD" : "DEG";
-    save(STORAGE.angle, angle);
+    const payload = {
+      app: "Sayeed Calculator",
+      exportedAt: new Date().toISOString(),
+      calculations: history
+    };
 
-    els.deg?.classList.toggle("active", angle === "DEG");
-    els.rad?.classList.toggle("active", angle === "RAD");
-
-    update();
-    toast(`${angle} mode`);
-    beep();
-  }
-
-  function updateSecondButtons() {
-    els.second?.classList.toggle("active", second);
-    save(STORAGE.second, second ? "on" : "off");
-
-    const labels = second
-      ? { sin: "sin⁻¹", cos: "cos⁻¹", tan: "tan⁻¹", log: "10ˣ", ln: "eˣ" }
-      : { sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln" };
-
-    $$(".key[data-fn]").forEach((button) => {
-      const fn = button.dataset.fn;
-      if (labels[fn]) button.textContent = labels[fn];
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
     });
-  }
 
-  function toggleSecond() {
-    second = !second;
-    updateSecondButtons();
-    toast(second ? "Inverse functions ON" : "Normal functions ON");
-    beep();
-    vibrate();
-  }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sayeed-calculator-history-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-  function setTheme(light) {
-    document.body.classList.toggle("light", light);
-    save(STORAGE.theme, light ? "light" : "dark");
-    toast(light ? "Light theme" : "Dark theme");
+    toast("History exported");
     beep();
   }
 
-  function toggleTheme() {
-    setTheme(!document.body.classList.contains("light"));
-  }
+  function copyResult() {
+    const value = el.result?.textContent || "0";
 
-  async function copyResult() {
-    const value = els.result?.textContent || "0";
-
-    try {
-      await navigator.clipboard.writeText(value);
-      toast("Result copied");
-      beep();
-    } catch {
-      // Clipboard fallback for older browsers / non-secure contexts.
-      try {
+    navigator.clipboard?.writeText(value)
+      .then(() => {
+        toast("Result copied");
+        beep();
+      })
+      .catch(() => {
         const area = document.createElement("textarea");
         area.value = value;
         area.style.position = "fixed";
         area.style.opacity = "0";
         document.body.appendChild(area);
         area.select();
-        document.execCommand("copy");
+
+        try {
+          document.execCommand("copy");
+          toast("Result copied");
+          beep();
+        } catch {
+          toast("Copy unavailable");
+        }
+
         area.remove();
-        toast("Result copied");
-        beep();
-      } catch {
-        toast("Copy unavailable");
-      }
-    }
+      });
   }
 
-  function scrollHistory() {
-    els.historySection?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+  /* ---------------- Modes ---------------- */
+
+  function setAngle(mode) {
+    angle = mode === "RAD" ? "RAD" : "DEG";
+    save(KEY.angle, angle);
+
+    el.deg?.classList.toggle("active", angle === "DEG");
+    el.rad?.classList.toggle("active", angle === "RAD");
+
+    update();
+  }
+
+  function updateSecond() {
+    el.second?.classList.toggle("active", second);
+    el.second?.setAttribute("aria-pressed", String(second));
+
+    const labels = second
+      ? { sin: "sin⁻¹", cos: "cos⁻¹", tan: "tan⁻¹" }
+      : { sin: "sin", cos: "cos", tan: "tan" };
+
+    $$(".key[data-fn]").forEach((button) => {
+      const fn = button.dataset.fn;
+      if (labels[fn]) button.textContent = labels[fn];
     });
+
+    save(KEY.second, second ? "on" : "off");
   }
 
-  /* ---------- Button dispatcher ---------- */
+  function toggleSecond() {
+    second = !second;
+    updateSecond();
+    toast(second ? "Inverse functions ON" : "Normal functions ON");
+    beep();
+    vibrate();
+  }
+
+  function toggleTheme() {
+    const light = !document.body.classList.contains("light");
+    document.body.classList.toggle("light", light);
+    save(KEY.theme, light ? "light" : "dark");
+    toast(light ? "Light theme" : "Dark theme");
+    beep();
+  }
+
+  function toggleSound() {
+    sound = !sound;
+    save(KEY.sound, sound ? "on" : "off");
+
+    if (el.sound) {
+      el.sound.textContent = sound ? "🔊" : "🔇";
+      el.sound.setAttribute("aria-label", sound ? "Turn sound off" : "Turn sound on");
+    }
+
+    toast(sound ? "Sound ON" : "Sound OFF");
+    if (sound) beep();
+  }
+
+  /* ---------------- Button handling ---------------- */
 
   function handleButton(button) {
-    if (!button) return;
-
     tap(button);
 
     const action = button.dataset.action;
@@ -748,40 +710,39 @@
     if (action === "clear") return clearExpression();
     if (action === "backspace") return backspace();
     if (action === "equals") return equal();
+
     if (action === "square" || action === "cube" || action === "factorial") {
       return postfix(action);
     }
 
     if (fn) {
-      if (second && (fn === "sin" || fn === "cos" || fn === "tan")) {
-        return appendFunction(`a${fn}`);
-      }
-
       if (second && fn === "log") {
-        expr += isValueEnding(expr) ? "×10^(" : "10^(";
+        if (valueEnds(expr)) expr += "×";
+        expr += "10^(";
         update();
         beep();
         return;
       }
 
       if (second && fn === "ln") {
-        expr += isValueEnding(expr) ? "×e^(" : "e^(";
+        if (valueEnds(expr)) expr += "×";
+        expr += "e^(";
         update();
         beep();
         return;
       }
 
-      return appendFunction(fn);
+      return functionInput(fn);
     }
 
     if (value) {
       appendValue(value);
       beep();
-      vibrate(5);
+      vibrate(4);
     }
   }
 
-  /* ---------- Keyboard ---------- */
+  /* ---------------- Keyboard ---------------- */
 
   function keyboard(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -794,14 +755,8 @@
     }
 
     const operators = {
-      "+": "+",
-      "-": "−",
-      "*": "×",
-      "/": "÷",
-      "%": "%",
-      "(": "(",
-      ")": ")",
-      "^": "^"
+      "+": "+", "-": "−", "*": "×", "/": "÷",
+      "%": "%", "(": "(", ")": ")", "^": "^"
     };
 
     if (operators[key]) {
@@ -817,7 +772,7 @@
       return;
     }
 
-  if (key === "Backspace") {
+    if (key === "Backspace") {
       event.preventDefault();
       backspace();
       return;
@@ -829,107 +784,104 @@
       return;
     }
 
-    if (key.toLowerCase() === "p") {
-      appendValue("π");
-    }
+    if (key.toLowerCase() === "p") appendValue("π");
   }
-  /* ---------- History gestures ---------- */
+
+  /* ---------------- Events ---------------- */
 
   function historyClick(event) {
     const item = event.target.closest(".history-item");
     if (!item) return;
-
-    restoreHistory(Number(item.dataset.index));
+    restoreHistory(Number(item.dataset.historyIndex));
   }
 
-  function historyKeyboard(event) {
+  function historyKey(event) {
+     if (event.key !== "Enter" && event.key !== " ") return;
     const item = event.target.closest(".history-item");
     if (!item) return;
 
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      restoreHistory(Number(item.dataset.index));
-    }
+    event.preventDefault();
+    restoreHistory(Number(item.dataset.historyIndex));
   }
 
-  /* ---------- Initialization ---------- */
-
   function bind() {
-    els.keypad?.addEventListener("click", (event) => {
+    el.keypad?.addEventListener("click", (event) => {
       const button = event.target.closest(".key");
-      if (!button) return;
-      handleButton(button);
+      if (button) handleButton(button);
     });
 
-    els.keypad?.addEventListener("pointerdown", (event) => {
-      const button = event.target.closest(".key");
-      if (button && sound) beep();
-    }, { passive: true });
+    el.copy?.addEventListener("click", copyResult);
+    el.sound?.addEventListener("click", toggleSound);
+    el.theme?.addEventListener("click", toggleTheme);
+    el.historyBtn?.addEventListener("click", () =>
+      el.historySection?.scrollIntoView({ behavior: "smooth" })
+    );
 
-    els.copy?.addEventListener("click", copyResult);
-    els.deg?.addEventListener("click", () => setAngle("DEG"));
-    els.rad?.addEventListener("click", () => setAngle("RAD"));
-    els.second?.addEventListener("click", toggleSecond);
+    el.deg?.addEventListener("click", () => setAngle("DEG"));
+    el.rad?.addEventListener("click", () => setAngle("RAD"));
+    el.second?.addEventListener("click", toggleSecond);
 
-    els.mc?.addEventListener("click", memoryClear);
-    els.mr?.addEventListener("click", memoryRecall);
-    els.mp?.addEventListener("click", () => memoryAdd(1));
-    els.mm?.addEventListener("click", () => memoryAdd(-1));
+    el.mc?.addEventListener("click", memoryClear);
+    el.mr?.addEventListener("click", memoryRecall);
+    el.mp?.addEventListener("click", () => memoryChange(1));
+    el.mm?.addEventListener("click", () => memoryChange(-1));
 
-    els.clearHistory?.addEventListener("click", clearHistory);
-    els.historyBtn?.addEventListener("click", scrollHistory);
+    el.clearHistory?.addEventListener("click", clearHistory);
 
-    els.sound?.addEventListener("click", () => {
-      sound = !sound;
-      save(STORAGE.sound, sound ? "on" : "off");
-      els.sound.textContent = sound ? "🔊" : "🔇";
-      toast(sound ? "Sound ON" : "Sound OFF");
-      if (sound) beep();
-    });
+    el.historySearch?.addEventListener("input", renderHistory);
 
-    els.theme?.addEventListener("click", toggleTheme);
-
-    els.historyList?.addEventListener("click", historyClick);
-    els.historyList?.addEventListener("keydown", historyKeyboard);
+    el.historyList?.addEventListener("click", historyClick);
+    el.historyList?.addEventListener("keydown", historyKey);
 
     document.addEventListener("keydown", keyboard);
+     /* Dynamic ripple position */
+    el.keypad?.addEventListener("pointerdown", (event) => {
+      const button = event.target.closest(".key");
+      if (!button) return;
 
-  // Prevent double-tap zoom on calculator buttons without blocking scrolling.
-    els.keypad?.addEventListener("dblclick", (event) => event.preventDefault());
+      const rect = button.getBoundingClientRect();
+      button.style.setProperty("--tap-x", `${event.clientX - rect.left}px`);
+      button.style.setProperty("--tap-y", `${event.clientY - rect.top}px`);
+    });
   }
 
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
+
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     });
   }
 
   function init() {
-    const savedTheme = localStorage.getItem(STORAGE.theme);
-    if (savedTheme === "light") document.body.classList.add("light");
+    if (localStorage.getItem(KEY.theme) === "light") {
+      document.body.classList.add("light");
+    }
 
-    if (els.sound) els.sound.textContent = sound ? "🔊" : "🔇";
+    if (el.sound) {
+      el.sound.textContent = sound ? "🔊" : "🔇";
+      el.sound.setAttribute("aria-label", sound ? "Turn sound off" : "Turn sound on");
+    }
 
     setAngle(angle);
-    updateSecondButtons();
+    updateSecond();
     renderHistory();
     update();
 
-    if (els.year) els.year.textContent = new Date().getFullYear();
+    if (el.year) el.year.textContent = new Date().getFullYear();
 
     bind();
     registerServiceWorker();
 
-    // Keep splash lightweight and avoid blocking first interaction.
     const splash = $("#splash");
     if (splash) {
       setTimeout(() => {
         splash.classList.add("hide");
-        setTimeout(() => splash.remove(), 350);
+        setTimeout(() => splash.remove(), 450);
       }, 650);
     }
   }
 
   init();
 })();
+
