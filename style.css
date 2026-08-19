@@ -99,35 +99,37 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .history{transition:padding .25s ease,transform .25s ease}
 .history-item{will-change:transform,opacity}
 @media (hover:none){.key:hover,.history-item:hover,.icon-btn:hover{filter:none;transform:none;box-shadow:inset 0 1px rgba(255,255,255,.045),0 6px 16px rgba(0,0,0,.14)}}
-/* ===== Sayeed Profile Logo ===== */
-
-.logo {
-    width: 76px;
-    height: 76px;
-    min-width: 76px;
-    border-radius: 22px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Compact Profile Logo */
+.header-logo img,
+.logo img,
+.brand-logo img {
+    width: 64px !important;
+    height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    object-fit: cover;
+    border-radius: 16px;
     flex-shrink: 0;
 }
 
-.logo .profile-logo {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-    object-position: center;
-    border-radius: inherit;
+/* Header alignment */
+.header,
+.brand,
+.logo,
+.branding {
+    display: flex;
+    align-items: center;
 }
 
 /* Mobile */
 @media (max-width: 600px) {
-    .logo {
-        width: 72px;
-        height: 72px;
-        min-width: 72px;
-        border-radius: 20px;
+    .header-logo img,
+    .logo img,
+    .brand-logo img {
+        width: 58px !important;
+        height: 58px !important;
+        max-width: 58px !important;
+        max-height: 58px !important;
+        border-radius: 14px;
     }
 }
