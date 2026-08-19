@@ -148,3 +148,55 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
         border-radius: 14px;
     }
 }
+/* ===== HEADER FIX ===== */
+
+.profile-logo {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    min-height: 58px !important;
+    object-fit: cover;
+    border-radius: 14px;
+    flex-shrink: 0;
+}
+
+/* Keep Sayeed text original size */
+.brand h1,
+.logo h1,
+.brand-title,
+.brand-name {
+    font-size: 2.5rem !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+}
+
+/* Subtitle */
+.brand p,
+.logo p,
+.brand-subtitle {
+    font-size: 1rem !important;
+    line-height: 1.4 !important;
+    margin: 8px 0 0 !important;
+}
+
+/* Mobile header */
+@media (max-width: 600px) {
+
+    .profile-logo {
+        width: 58px !important;
+        height: 58px !important;
+    }
+
+    .brand h1,
+    .logo h1,
+    .brand-title,
+    .brand-name {
+        font-size: 2.5rem !important;
+    }
+
+    .brand p,
+    .logo p,
+    .brand-subtitle {
+        font-size: 1rem !important;
+    }
+}
