@@ -1,4 +1,4 @@
-package your.package.name
+package com.sayeed.calculator
 
 import android.annotation.SuppressLint
 import android.app.Activity
