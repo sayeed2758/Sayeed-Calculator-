@@ -384,3 +384,57 @@ header p,
         letter-spacing: 1.8px !important;
     }
 }
+/* =====================================================
+   SAYEED CALCULATOR — MOBILE HEADER COMPACT FIX
+   ===================================================== */
+
+@media screen and (max-width: 600px) {
+
+    /* Header branding area */
+    .header,
+    .navbar,
+    .topbar,
+    .app-header,
+    .site-header {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+
+    /* Logo image — SMALL */
+    .header img,
+    .navbar img,
+    .topbar img,
+    .app-header img,
+    .site-header img {
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        max-width: 58px !important;
+        min-height: 58px !important;
+        max-height: 58px !important;
+        object-fit: cover !important;
+    }
+
+    /* Main Sayeed heading */
+    .header h1,
+    .navbar h1,
+    .topbar h1,
+    .app-header h1,
+    .site-header h1 {
+        font-size: 30px !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+    }
+
+    /* Precision Calculator */
+    .header p,
+    .navbar p,
+    .topbar p,
+    .app-header p,
+    .site-header p {
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+        margin: 3px 0 0 !important;
+    }
+
+}
