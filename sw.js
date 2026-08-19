@@ -1,4 +1,4 @@
-const CACHE="sayeed-calculator-v7";
+const CACHE="sayeed-calculator-v8";
 const ASSETS=[
   "./","./index.html","./manifest.webmanifest",
   "./assets/css/style.css","./assets/js/app.js","./assets/icons/icon.svg"
