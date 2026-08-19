@@ -433,7 +433,9 @@
   }
 
   function isImplicitMultiplyStart(text) {
-    return /^(?:[(]|π|e|A|sin|cos|tan|asin|acos|atan|log|ln|sqrt|abs|inv)/.test(text);
+    // IMPORTANT: digits are deliberately NOT included here.
+    // Therefore 5 followed by 8 becomes 58, never 5×8.
+    return /^(?:\(|π|e|ANS|sin|cos|tan|asin|acos|atan|log|ln|sqrt|abs|inv)/.test(text);
   }
 
   function appendValue(value) {
@@ -671,38 +673,50 @@
     const filename =
       `Sayeed-Calculator-History-${new Date().toISOString().slice(0,10)}.txt`;
 
-    try {
+    const finishDownload = () => {
       const link = document.createElement("a");
       link.href = url;
       link.download = filename;
+      link.setAttribute("download", filename);
       link.rel = "noopener";
-      link.style.display = "none";
+      link.style.position = "fixed";
+      link.style.left = "-9999px";
       document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast("History exported");
+
+      // Android Chrome handles a trusted click on a Blob URL reliably.
+      link.dispatchEvent(new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window
+      }));
+
+      setTimeout(() => link.remove(), 100);
+    };
+
+    try {
+      finishDownload();
+      toast("Export started");
       beep("equal");
     } catch {
       try {
         const file = new File([blob], filename, { type: "text/plain" });
-        if (navigator.canShare?.({ files: [file] })) {
+        if (navigator.canShare?.({ files: [file] }) && navigator.share) {
           navigator.share({
             title: "Sayeed Calculator History",
+            text: "Sayeed Calculator History",
             files: [file]
           }).then(
             () => toast("History shared"),
-            () => toast("Export cancelled")
+            () => window.open(url, "_blank", "noopener,noreferrer")
           );
         } else {
-          window.open(url, "_blank", "noopener");
-          toast("History opened");
+          window.open(url, "_blank", "noopener,noreferrer");
         }
       } catch {
-        window.open(url, "_blank", "noopener");
-        toast("History opened");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
     } finally {
-      setTimeout(() => URL.revokeObjectURL(url), 2500);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
   }
 
@@ -811,7 +825,7 @@
       block: "start"
     });
   }
-  /* ---------- Button dispatcher ---------- */
+   /* ---------- Button dispatcher ---------- */
 
   function handleButton(button) {
     if (!button) return;
@@ -857,7 +871,8 @@
       vibrate(5);
     }
   }
-  /* ---------- Keyboard ---------- */
+
+ /* ---------- Keyboard ---------- */
 
   function keyboard(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -909,8 +924,7 @@
       appendValue("π");
     }
   }
-
-  /* ---------- History gestures ---------- */
+   /* ---------- History gestures ---------- */
 
   function historyClick(event) {
     const del = event.target.closest("[data-delete]");
@@ -933,7 +947,7 @@
       restoreHistory(Number(item.dataset.index));
     }
   }
-  /* ---------- Initialization ---------- */
+   /* ---------- Initialization ---------- */
 
   function bind() {
     els.keypad?.addEventListener("click", (event) => {
