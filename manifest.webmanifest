@@ -1,18 +1,28 @@
 {
-  "name": "Sayeed Premium Calculator",
+  "name": "Sayeed Calculator",
   "short_name": "Sayeed",
-  "description": "Fast, private, offline-ready scientific calculator by Sayeed.",
-  "start_url": "./",
+  "description": "Premium scientific calculator by Sayeed.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#050812",
-  "theme_color": "#050812",
   "orientation": "portrait-primary",
+  "background_color": "#050812",
+  "theme_color": "#786cff",
+  "categories": [
+    "utilities",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "assets/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./icon.svg.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
