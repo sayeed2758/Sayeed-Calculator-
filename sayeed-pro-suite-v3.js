@@ -46,10 +46,9 @@
 
   function getDisplay() {
     return (
+      $("#expression") ||
       $("#display") ||
-      $("#result") ||
       $(".calculator-display") ||
-      $(".display") ||
       $("input[readonly]") ||
       $("input[type='text']")
     );
@@ -532,8 +531,7 @@
     });
 
   }
-
-  function watchCalculator() {
+   function watchCalculator() {
     const saveSession = () => {
       const expr = readDisplay();
       const result = findResultText();
@@ -588,8 +586,8 @@
       document.addEventListener("click", () => toggleWakeLock(), { once:true, passive:true });
     }
   }
-
-  if (document.readyState === "loading") {
+   
+   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot, { once:true });
   } else boot();
 
