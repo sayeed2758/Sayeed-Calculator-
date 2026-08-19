@@ -781,8 +781,7 @@
     beep();
     vibrate();
   }
-
-  function setTheme(light) {
+   function setTheme(light) {
     document.body.classList.toggle("light", light);
     save(STORAGE.theme, light ? "light" : "dark");
     toast(light ? "Light theme" : "Dark theme");
@@ -801,7 +800,7 @@
       toast("Result copied");
       beep();
     } catch {
-      // Clipboard fallback for older browsers / non-secure contexts.
+       // Clipboard fallback for older browsers / non-secure contexts.
       try {
         const area = document.createElement("textarea");
         area.value = value;
@@ -871,8 +870,53 @@
       vibrate(5);
     }
   }
+/* ---------- Button dispatcher ---------- */
 
- /* ---------- Keyboard ---------- */
+  function handleButton(button) {
+    if (!button) return;
+
+    tap(button);
+
+    const action = button.dataset.action;
+    const value = button.dataset.value;
+    const fn = button.dataset.fn;
+
+    if (action === "clear") return clearExpression();
+    if (action === "backspace") return backspace();
+    if (action === "equals") return equal();
+    if (action === "square" || action === "cube" || action === "factorial") {
+      return postfix(action);
+    }
+
+    if (fn) {
+      if (second && (fn === "sin" || fn === "cos" || fn === "tan")) {
+        return appendFunction(`a${fn}`);
+      }
+
+      if (second && fn === "log") {
+        expr += isValueEnding(expr) ? "×10^(" : "10^(";
+        update();
+        beep();
+        return;
+      }
+
+      if (second && fn === "ln") {
+        expr += isValueEnding(expr) ? "×e^(" : "e^(";
+        update();
+        beep();
+        return;
+      }
+
+      return appendFunction(fn);
+    }
+
+    if (value) {
+      appendValue(value);
+      beep();
+      vibrate(5);
+    }
+  }
+   /* ---------- Keyboard ---------- */
 
   function keyboard(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -993,8 +1037,7 @@
     els.historyList?.addEventListener("keydown", historyKeyboard);
 
     document.addEventListener("keydown", keyboard);
-
-    // Prevent double-tap zoom on calculator buttons without blocking scrolling.
+// Prevent double-tap zoom on calculator buttons without blocking scrolling.
     els.keypad?.addEventListener("dblclick", (event) => event.preventDefault());
   }
 
@@ -1033,3 +1076,6 @@
 
   init();
 })();
+
+     
+ 
