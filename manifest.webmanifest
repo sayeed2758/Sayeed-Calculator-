@@ -1,10 +1,10 @@
 {
-  "name": "Sayeed Professional Calculator",
+  "name": "Sayeed Pro Calculator",
   "short_name": "Sayeed Calculator",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#050811",
-  "theme_color": "#050811",
-  "description": "Sayeed Professional Scientific Calculator",
-  "icons": []
+  "theme_color": "#060912",
+  "description": "Sayeed professional scientific calculator"
 }
