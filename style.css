@@ -99,28 +99,35 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .history{transition:padding .25s ease,transform .25s ease}
 .history-item{will-change:transform,opacity}
 @media (hover:none){.key:hover,.history-item:hover,.icon-btn:hover{filter:none;transform:none;box-shadow:inset 0 1px rgba(255,255,255,.045),0 6px 16px rgba(0,0,0,.14)}}
-/* ===== SAYEED PROFILE LOGO ===== */
-.logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    border-radius: inherit;
-}
+/* ===== Sayeed Profile Logo ===== */
 
-/* Prevent broken/oversized image */
 .logo {
+    width: 76px;
+    height: 76px;
+    min-width: 76px;
+    border-radius: 22px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+.logo .profile-logo {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+    border-radius: inherit;
 }
 
 /* Mobile */
 @media (max-width: 600px) {
-    .logo img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+    .logo {
+        width: 72px;
+        height: 72px;
+        min-width: 72px;
+        border-radius: 20px;
     }
 }
