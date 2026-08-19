@@ -400,7 +400,13 @@
   function appendValue(value) {
     if (!value) return;
 
-    if (valueEnds(expr) && valueStarts(value)) expr += "×";
+    // IMPORTANT: digits continue the current number.
+    // 2 then 5 must become 25, not 2×5.
+    // Implicit multiplication is only inserted before a new
+    // non-numeric value such as (, π, e or ANS.
+    if (valueEnds(expr) && valueStarts(value) && !/^[0-9.]$/.test(value)) {
+      expr += "×";
+    }
 
     if (value === "." && /(?:^|[+−×÷^(])\d*\.$/.test(expr)) return;
 
