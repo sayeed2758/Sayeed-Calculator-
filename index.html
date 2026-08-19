@@ -30,6 +30,22 @@ footer{text-align:center;color:#687590;font-size:10px;margin-top:16px}
 .toast{position:fixed;z-index:9;bottom:24px;left:50%;transform:translate(-50%,25px);opacity:0;background:#11192b;color:white;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12px;transition:.25s;box-shadow:0 15px 35px #0008}.toast.show{opacity:1;transform:translate(-50%,0)}
 @media(max-width:700px){.wrap{width:min(100% - 12px,540px);padding:10px 0 24px}.card{padding:10px;border-radius:24px}.display{min-height:188px;padding:14px;border-radius:19px}.pad{grid-template-columns:repeat(4,1fr);gap:7px}.key{height:55px}.eq{grid-column:4;grid-row:span 2}.zero{grid-column:span 2}.sci{font-size:12px}.history{padding:17px;border-radius:20px}.head h2{font-size:22px}}
 @media(max-width:380px){.key{height:51px}.result{font-size:35px}.logo{width:44px;height:44px}.brand h1{font-size:18px}}
+
+/* V2 ULTRA ANIMATION LAYER */
+body:before{animation:aurora 10s ease-in-out infinite alternate, hue 16s linear infinite}
+@keyframes hue{to{filter:hue-rotate(35deg)}}
+.logo{animation:logoFloat 3.2s ease-in-out infinite, logoPulse 2.8s ease-in-out infinite}
+@keyframes logoPulse{50%{box-shadow:0 0 0 5px #786cff10,0 0 38px #20dcff55,0 14px 40px #786cff35}}
+.display{animation:displayIn .8s .18s both cubic-bezier(.2,.9,.2,1)}
+@keyframes displayIn{from{opacity:0;transform:translateY(15px) scale(.97);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+.key{animation:keyIn .45s both cubic-bezier(.2,.9,.2,1)}
+.key:nth-child(1){animation-delay:.22s}.key:nth-child(2){animation-delay:.25s}.key:nth-child(3){animation-delay:.28s}.key:nth-child(4){animation-delay:.31s}.key:nth-child(5){animation-delay:.34s}.key:nth-child(6){animation-delay:.37s}.key:nth-child(7){animation-delay:.40s}.key:nth-child(8){animation-delay:.43s}
+@keyframes keyIn{from{opacity:0;transform:translateY(18px) scale(.85)}to{opacity:1;transform:none}}
+.key.ripple:after{animation:ripple .55s cubic-bezier(.1,.8,.2,1)}
+.eq{animation:eqGlow 2.3s ease-in-out infinite, eqFloat 3.5s ease-in-out infinite}
+@keyframes eqFloat{50%{transform:translateY(-2px)}}
+.history{animation:historyIn .8s .55s both cubic-bezier(.2,.9,.2,1)}
+@keyframes historyIn{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -70,5 +86,8 @@ q("#hist").onclick=()=>q("#history").scrollIntoView({behavior:"smooth"});q("#sou
 q("#theme").onclick=()=>{show("Premium dark theme");beep(550)};
 document.onkeydown=e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;let k=e.key;if(/[0-9.]/.test(k))add(k);else if("+-*/()%".includes(k)){e.preventDefault();add(k==="*"?"×":k==="/"?"÷":k==="- "?"−":k)}else if(k==="Enter"||k==="="){e.preventDefault();equal()}else if(k==="Backspace"){e.preventDefault();ex=ex.slice(0,-1);update()}else if(k==="Escape"){ex="";update()}};
 q("#sound").textContent=snd?"🔊":"🔇";q("#year").textContent=new Date().getFullYear();render();update();
+
+/* Ultra interaction polish */
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('button');if(!b)return;b.animate([{transform:'scale(.96)'},{transform:'scale(1)'}],{duration:180,easing:'cubic-bezier(.2,1.4,.3,1)'});});
 </script>
 </body></html>
