@@ -200,3 +200,87 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
         font-size: 1rem !important;
     }
 }
+/* =========================================
+   SAYEED HEADER - FINAL COMPACT VERSION
+   ========================================= */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Small profile/logo */
+.profile-logo {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+
+    object-fit: cover;
+    display: block;
+    border-radius: 14px;
+    flex-shrink: 0;
+}
+
+/* Text beside logo */
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.brand-text h1 {
+    font-size: 2.35rem !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: nowrap;
+}
+
+.brand-text p {
+    font-size: 0.95rem !important;
+    line-height: 1.25 !important;
+    margin: 7px 0 0 !important;
+    padding: 0 !important;
+    letter-spacing: 0.12em;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+
+    .topbar {
+        gap: 8px;
+    }
+
+    .brand {
+        gap: 9px;
+    }
+
+    .profile-logo {
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        max-width: 58px !important;
+        border-radius: 14px;
+    }
+
+    .brand-text h1 {
+        font-size: 2.15rem !important;
+    }
+
+    .brand-text p {
+        font-size: 0.82rem !important;
+        letter-spacing: 0.10em;
+        margin-top: 6px !important;
+    }
+}
