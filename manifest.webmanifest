@@ -1,28 +1,13 @@
 {
   "name": "Sayeed Premium Calculator",
   "short_name": "Sayeed",
-  "description": "A fast, private, offline-ready premium scientific calculator by Sayeed.",
-  "id": "./",
-  "start_url": "./index.html",
+  "description": "Fast, private, offline-ready scientific calculator by Sayeed.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
   "background_color": "#050812",
   "theme_color": "#050812",
   "orientation": "portrait-primary",
-  "lang": "en",
-  "dir": "ltr",
-  "categories": [
-    "education",
-    "utilities",
-    "productivity"
-  ],
-  "prefer_related_applications": false,
-
   "icons": [
     {
       "src": "assets/icons/icon.svg",
