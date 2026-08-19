@@ -451,13 +451,13 @@
       try{
         const data=JSON.parse(String(reader.result||""));
         if(!Array.isArray(data.history)) throw new Error();
-        const clean=data.history.filter(x=>x&&typeof x==="object"&&("e"in x||"r"in x))
+        const clean=data.history.filter (x=>x&&typeof x==="object"&&("e"in x||"r"in x))
           .map(x=>({e:String(x.e??""),r:String(x.r??""),t:Number(x.t)||Date.now()})).slice(0,1000);
         writeJSON(HISTORY_KEY,clean);
         writeJSON(PIN_KEY,Array.isArray(data.pinned)?data.pinned:[]);
         writeJSON(FAV_KEY,Array.isArray(data.favorites)?data.favorites:[]);
         toast(`${clean.length} calculations restored`);
-        setTimeout(()=>location.reload(),450);
+      setTimeout(()=>location.reload(),450);
       }catch{toast("Invalid Pro backup")}
     };
     reader.readAsText(file);
@@ -490,7 +490,8 @@
     if ($("#sphMenu")) return;
     const menu=document.createElement("div");
     menu.id="sphMenu";
-    menu.style.cssText="position:fixed;z-index:10000;display:none;padding:8px;border:1px solid rgba(150,180,230,.18);border-radius:16px;background:#091221;box-shadow:0 20px 60px rgba(0,0,0,.35)";
+
+menu.style.cssText="position:fixed;z-index:10000;display:none;padding:8px;border:1px solid rgba(150,180,230,.18);border-radius:16px;background:#091221;box-shadow:0 20px 60px rgba(0,0,0,.35)";
     menu.innerHTML=`
       <button class="sph-btn" data-pro="backup">💾 Full backup</button>
       <button class="sph-btn" data-pro="csv">📊 Pro CSV</button>
@@ -551,7 +552,7 @@
       mo.observe(nativeList,{childList:true,subtree:true});
     }
 
-    /* Existing Export button remains untouched. Add a long-press/right-click style
+/* Existing Export button remains untouched. Add a long-press/right-click style
        menu to the advanced hub only, so old export behavior is never replaced. */
     hub.addEventListener("contextmenu",e=>{
       if(e.target.closest(".sph-btn.primary")){e.preventDefault();showMenuAt(e.clientX,e.clientY);}
@@ -589,8 +590,7 @@
       if(m) m.style.display="none";
     });
   }
-
-  function watchHistory(){
+function watchHistory(){
     let last="";
     const tick=()=>{
       const raw=localStorage.getItem(HISTORY_KEY)||"";
@@ -609,7 +609,6 @@
     watchHistory();
   }
 
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init,{once:true});
+ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init,{once:true});
   else init();
 })();
-
