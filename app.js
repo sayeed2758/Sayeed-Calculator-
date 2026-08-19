@@ -1,350 +1,935 @@
+/* Sayeed Calculator — Advanced Engine v2
+   Clean, dependency-free, GitHub Pages / PWA friendly.
+   Works with the current index.html without requiring XML/Android files.
+*/
 (() => {
-"use strict";
+  "use strict";
 
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const STORE = {
-  history: "sayeed.v8.history",
-  memory: "sayeed.v8.memory",
-  angle: "sayeed.v8.angle",
-  theme: "sayeed.v8.theme",
-  sound: "sayeed.v8.sound"
-};
+  const $ = (selector) => document.querySelector(selector);
+  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-const state = {
-  expression: "",
-  memory: Number(localStorage.getItem(STORE.memory) || 0),
-  angle: localStorage.getItem(STORE.angle) || "DEG",
-  second: false,
-  sound: localStorage.getItem(STORE.sound) !== "off",
-  theme: localStorage.getItem(STORE.theme) || "dark",
-  history: readJSON(STORE.history, [])
-};
+  const els = {
+    expression: $("#expression"),
+    result: $("#result"),
+    state: $("#displayState"),
+    memory: $("#memoryText"),
+    keypad: $("#keypad"),
+    historyList: $("#historyList"),
+    historySection: $("#historySection"),
+    toast: $("#toast"),
+    year: $("#year"),
+    copy: $("#copyBtn"),
+    sound: $("#soundBtn"),
+    theme: $("#themeBtn"),
+    historyBtn: $("#historyBtn"),
+    deg: $("#degBtn"),
+    rad: $("#radBtn"),
+    second: $("#secondBtn"),
+    mc: $("#mcBtn"),
+    mr: $("#mrBtn"),
+    mp: $("#mPlusBtn"),
+    mm: $("#mMinusBtn"),
+    clearHistory: $("#clearHistoryBtn")
+  };
 
-function readJSON(key, fallback) {
-  try {
-    const v = JSON.parse(localStorage.getItem(key));
-    return Array.isArray(v) ? v : fallback;
-  } catch { return fallback; }
-}
-function save(key, value) { localStorage.setItem(key, String(value)); }
-function format(n) {
-  if (!Number.isFinite(n)) throw new Error("Math error");
-  if (Object.is(n, -0)) n = 0;
-  return Number(n.toPrecision(12)).toString();
-}
-function showToast(message) {
-  const t = $("#toast");
-  t.textContent = message;
-  t.classList.add("show");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => t.classList.remove("show"), 1400);
-}
-let audioCtx = null;
-function beep(freq = 440, duration = .055) {
-  if (!state.sound) return;
-  try {
-    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(.0001, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.026, audioCtx.currentTime + .006);
-    gain.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime + duration);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration + .01);
-  } catch {}
-}
-function buzz(ms = 7) {
-  try { navigator.vibrate?.(ms); } catch {}
-}
+  const STORAGE = Object.freeze({
+    memory: "sayeed_memory",
+    angle: "sayeed_angle",
+    sound: "sayeed_sound",
+    theme: "sayeed_theme",
+    history: "sayeed_history",
+    answer: "sayeed_answer",
+    second: "sayeed_second"
+  });
 
-/* Tokenizer + recursive-descent parser.
-   This avoids eval()/Function() and supports implicit multiplication,
-   factorial, percentages, constants, trig, inverse trig and precedence. */
-const FUNCTIONS = new Set(["sin","cos","tan","asin","acos","atan","log","ln","sqrt","abs","inv"]);
-function tokenize(input) {
-  const s = input.replaceAll("×","*").replaceAll("÷","/").replaceAll("−","-").replaceAll("π","pi");
-  const out = [];
-  let i = 0;
-  while (i < s.length) {
-    const c = s[i];
-    if (/\s/.test(c)) { i++; continue; }
-    if (/[0-9.]/.test(c)) {
-      const start = i;
-      let dots = 0;
-      while (i < s.length && /[0-9.]/.test(s[i])) { if (s[i] === ".") dots++; i++; }
-      const raw = s.slice(start, i);
-      if (dots > 1 || raw === ".") throw new Error("Invalid number");
-      out.push({t:"number", v:Number(raw)});
-      continue;
+  const readNumber = (key, fallback = 0) => {
+    const n = Number(localStorage.getItem(key));
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const safeJson = (key, fallback) => {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || "");
+      return value ?? fallback;
+    } catch {
+      return fallback;
     }
-    if (/[A-Za-z]/.test(c)) {
-      const start = i++;
-      while (i < s.length && /[A-Za-z]/.test(s[i])) i++;
-      const word = s.slice(start,i).toLowerCase();
-      if (word === "pi") out.push({t:"number",v:Math.PI});
-      else if (word === "e") out.push({t:"number",v:Math.E});
-      else if (FUNCTIONS.has(word)) out.push({t:"fn",v:word});
-      else throw new Error("Unknown function");
-      continue;
+  };
+
+  let expr = "";
+  let memory = readNumber(STORAGE.memory, 0);
+  let angle = localStorage.getItem(STORAGE.angle) === "RAD" ? "RAD" : "DEG";
+  let sound = localStorage.getItem(STORAGE.sound) !== "off";
+  let second = localStorage.getItem(STORAGE.second) === "on";
+  let lastAnswer = readNumber(STORAGE.answer, 0);
+  let history = safeJson(STORAGE.history, []);
+  if (!Array.isArray(history)) history = [];
+
+  const MAX_HISTORY = 100;
+
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch {}
+  }
+
+  function saveJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }
+
+  function format(value) {
+    if (!Number.isFinite(value)) throw new Error("Math error");
+    if (Math.abs(value) < 1e-12) value = 0;
+
+    const abs = Math.abs(value);
+    if (abs !== 0 && (abs >= 1e12 || abs < 1e-9)) {
+      return Number(value.toPrecision(12)).toString();
     }
-    if ("+-*/^%!()".includes(c)) { out.push({t:c,v:c}); i++; continue; }
-    throw new Error("Invalid input");
+
+    return Number(value.toPrecision(12)).toString();
   }
-  return out;
-}
-function evaluate(input) {
-  if (!input.trim()) return 0;
-  const tokens = tokenize(input);
-  let p = 0;
-  const peek = () => tokens[p];
-  const take = () => tokens[p++];
-  const isStart = x => x && (x.t === "number" || x.t === "(" || x.t === "fn");
-  function primary() {
-    const t = peek();
-    if (!t) throw new Error("Incomplete");
-    if (t.t === "+") { take(); return primary(); }
-    if (t.t === "-") { take(); return -primary(); }
-    if (t.t === "number") { take(); return t.v; }
-    if (t.t === "(") {
-      take(); const v = addSub();
-      if (!peek() || take().t !== ")") throw new Error("Missing )");
-      return v;
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[c]));
+  }
+
+  function toast(message) {
+    if (!els.toast) return;
+    els.toast.textContent = message;
+    els.toast.classList.add("show");
+    clearTimeout(window.__sayeedToast);
+    window.__sayeedToast = setTimeout(() => {
+      els.toast.classList.remove("show");
+    }, 1400);
+  }
+
+  function vibrate(ms = 7) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    } catch {}
+  }
+
+  let audioContext = null;
+
+  function beep(kind = "key") {
+    if (!sound) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      audioContext ||= new AudioCtx();
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume().catch(() => {});
+      }
+
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const now = audioContext.currentTime;
+
+      oscillator.type = kind === "equal" ? "sine" : "triangle";
+      oscillator.frequency.value = kind === "equal" ? 720 : kind === "error" ? 180 : 430;
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(kind === "equal" ? 0.035 : 0.018, now + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.065);
+    } catch {}
+  }
+
+  function tap(button) {
+    if (!button) return;
+    button.classList.remove("tap");
+    void button.offsetWidth;
+    button.classList.add("tap");
+    setTimeout(() => button.classList.remove("tap"), 120);
+  }
+
+  /* ---------- Math engine: no eval(), no Function() ---------- */
+
+  class Parser {
+    constructor(input) {
+      this.input = input
+        .replace(/×/g, "*")
+        .replace(/÷/g, "/")
+        .replace(/−/g, "-")
+        .replace(/\s+/g, "");
+      this.i = 0;
     }
-    if (t.t === "fn") {
-      const fn = take().v;
-      let value;
-      if (peek()?.t === "(") {
-        take(); value = addSub();
-        if (!peek() || take().t !== ")") throw new Error("Missing )");
-      } else value = primary();
-      return applyFunction(fn, value);
+
+    peek() {
+      return this.input[this.i] || "";
     }
-    throw new Error("Expected value");
-  }
-  function factorial(n) {
-    if (!Number.isInteger(n) || n < 0 || n > 170) throw new Error("Invalid factorial");
-    let r = 1;
-    for (let i=2;i<=n;i++) r *= i;
-    return r;
-  }
-  function postfix() {
-    let v = primary();
-    while (peek()?.t === "!" || peek()?.t === "%") {
-      const op = take().t;
-      v = op === "!" ? factorial(v) : v / 100;
+
+    consume(char) {
+      if (this.input.startsWith(char, this.i)) {
+        this.i += char.length;
+        return true;
+      }
+      return false;
     }
-    return v;
-  }
-  function power() {
-    let v = postfix();
-    if (peek()?.t === "^") { take(); v = Math.pow(v, power()); }
-    return v;
-  }
-  function multiply() {
-    let v = power();
-    while (true) {
-      const t = peek();
-      if (t?.t === "*" || t?.t === "/") {
-        take(); const r = power();
-        if (t.t === "/" && r === 0) throw new Error("Cannot divide by zero");
-        v = t.t === "*" ? v*r : v/r;
-      } else if (isStart(t)) {
-        v *= power(); // implicit multiplication: 2π, 2(3), 2sin(30)
-      } else break;
+
+    error(message = "Invalid expression") {
+      throw new Error(message);
     }
-    return v;
-  }
-  function addSub() {
-    let v = multiply();
-    while (peek()?.t === "+" || peek()?.t === "-") {
-      const op = take().t, r = multiply();
-      v = op === "+" ? v+r : v-r;
+
+    parse() {
+      if (!this.input) return 0;
+      const value = this.parseExpression();
+      if (this.i !== this.input.length) this.error();
+      return value;
     }
-    return v;
+
+    parseExpression() {
+      let value = this.parseTerm();
+
+      while (true) {
+        if (this.consume("+")) {
+          value += this.parseTerm();
+        } else if (this.consume("-")) {
+          value -= this.parseTerm();
+        } else {
+          break;
+        }
+      }
+
+      return value;
+    }
+
+    parseTerm() {
+      let value = this.parsePower();
+
+      while (true) {
+        if (this.consume("*")) {
+          value *= this.parsePower();
+        } else if (this.consume("/")) {
+          const divisor = this.parsePower();
+          if (Math.abs(divisor) < Number.EPSILON) this.error("Cannot divide by zero");
+          value /= divisor;
+        } else {
+          break;
+        }
+      }
+
+      return value;
+    }
+
+    parsePower() {
+      let base = this.parseUnary();
+      if (this.consume("^")) {
+        const exponent = this.parsePower();
+        base = Math.pow(base, exponent);
+      }
+      return base;
+    }
+
+    parseUnary() {
+      if (this.consume("+")) return +this.parseUnary();
+      if (this.consume("-")) return -this.parseUnary();
+
+      let value = this.parsePostfix();
+      return value;
+    }
+
+    parsePostfix() {
+      let value = this.parsePrimary();
+
+      while (true) {
+        if (this.consume("!")) {
+          value = factorial(value);
+        } else if (this.consume("%")) {
+          value /= 100;
+        } else {
+          break;
+        }
+      }
+
+      return value;
+    }
+
+    parsePrimary() {
+      const ch = this.peek();
+
+      if (ch === "(") {
+        this.i++;
+        const value = this.parseExpression();
+        if (!this.consume(")")) this.error("Missing )");
+        return value;
+      }
+
+      if (/[0-9.]/.test(ch)) {
+        return this.parseNumber();
+      }
+
+      if (/[A-Za-z_]/.test(ch)) {
+        const name = this.parseIdentifier();
+
+        if (name === "PI") return Math.PI;
+        if (name === "E") return Math.E;
+        if (name === "ANS") return lastAnswer;
+
+        if (!this.consume("(")) this.error("Unknown value");
+        const argument = this.parseExpression();
+        if (!this.consume(")")) this.error("Missing )");
+
+        return callFunction(name, argument);
+      }
+
+      this.error();
+    }
+
+    parseNumber() {
+      const start = this.i;
+      let hasDigit = false;
+      let hasDot = false;
+
+      while (this.i < this.input.length) {
+        const ch = this.input[this.i];
+
+        if (/[0-9]/.test(ch)) {
+          hasDigit = true;
+          this.i++;
+        } else if (ch === "." && !hasDot) {
+          hasDot = true;
+          this.i++;
+        } else {
+          break;
+        }
+      }
+
+      if (!hasDigit) this.error("Invalid number");
+
+      if (this.peek() === "e" || this.peek() === "E") {
+        const exponentStart = this.i;
+        this.i++;
+
+        if (this.peek() === "+" || this.peek() === "-") this.i++;
+
+        const expDigitsStart = this.i;
+        while (/[0-9]/.test(this.peek())) this.i++;
+
+        if (this.i === expDigitsStart) {
+          this.i = exponentStart;
+        }
+      }
+
+      const raw = this.input.slice(start, this.i);
+      const value = Number(raw);
+
+      if (!Number.isFinite(value)) this.error("Invalid number");
+      return value;
+    }
+
+    parseIdentifier() {
+      const start = this.i;
+      while (/[A-Za-z_]/.test(this.peek())) this.i++;
+      return this.input.slice(start, this.i);
+    }
   }
-  function applyFunction(fn, x) {
-    const rad = state.angle === "DEG" ? x * Math.PI / 180 : x;
-    const inv = state.second;
-    if (fn === "sin") return inv ? convertAngle(Math.asin(x)) : Math.sin(rad);
-    if (fn === "cos") return inv ? convertAngle(Math.acos(x)) : Math.cos(rad);
-    if (fn === "tan") return inv ? convertAngle(Math.atan(x)) : Math.tan(rad);
-    if (fn === "asin") return convertAngle(Math.asin(x));
-    if (fn === "acos") return convertAngle(Math.acos(x));
-    if (fn === "atan") return convertAngle(Math.atan(x));
-    if (fn === "log") return Math.log10(x);
-    if (fn === "ln") return Math.log(x);
-    if (fn === "sqrt") return Math.sqrt(x);
-    if (fn === "abs") return Math.abs(x);
-    if (fn === "inv") { if (x === 0) throw new Error("Cannot divide by zero"); return 1/x; }
+
+  function factorial(value) {
+    if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+      throw new Error("Factorial needs a non-negative integer");
+    }
+    if (value > 170) throw new Error("Factorial too large");
+
+    let result = 1;
+    for (let i = 2; i <= value; i++) result *= i;
+    return result;
+  }
+
+  function toRadians(value) {
+    return angle === "DEG" ? value * Math.PI / 180 : value;
+  }
+
+  function fromRadians(value) {
+    return angle === "DEG" ? value * 180 / Math.PI : value;
+  }
+
+  function trig(name, value) {
+    const r = toRadians(value);
+
+    if (name === "sin") return Math.sin(r);
+    if (name === "cos") return Math.cos(r);
+    if (name === "tan") {
+      const c = Math.cos(r);
+      if (Math.abs(c) < 1e-12) throw new Error("Undefined tangent");
+      return Math.tan(r);
+    }
+
+    if (name === "asin") {
+      if (value < -1 || value > 1) throw new Error("asin domain error");
+      return fromRadians(Math.asin(value));
+    }
+
+    if (name === "acos") {
+      if (value < -1 || value > 1) throw new Error("acos domain error");
+      return fromRadians(Math.acos(value));
+    }
+
+    if (name === "atan") return fromRadians(Math.atan(value));
+
     throw new Error("Unknown function");
   }
-  function convertAngle(r) { return state.angle === "DEG" ? r * 180 / Math.PI : r; }
-  const value = addSub();
-  if (p !== tokens.length) throw new Error("Invalid expression");
-  if (!Number.isFinite(value)) throw new Error("Math error");
-  return value;
-}
 
-function preview() {
-  const expr = state.expression;
-  $("#expression").textContent = expr || "0";
-  $("#memoryText").textContent = "M: " + format(state.memory);
-  $("#degBtn").classList.toggle("active", state.angle === "DEG");
-  $("#radBtn").classList.toggle("active", state.angle === "RAD");
-  $("#result").textContent = "0";
-  $("#displayState").textContent = expr ? "Preview" : "Ready";
-  if (!expr) return;
-  try { $("#result").textContent = format(evaluate(expr)); }
-  catch { $("#result").textContent = "…"; }
-}
-function add(value) {
-  state.expression += value;
-  preview();
-  beep(["+","−","×","÷"].includes(value) ? 520 : 430);
-  buzz(5);
-}
-function action(action) {
-  if (action === "clear") { state.expression = ""; preview(); beep(240); buzz(10); return; }
-  if (action === "backspace") { state.expression = state.expression.slice(0,-1); preview(); beep(320); return; }
-  if (action === "square") { state.expression += "^2"; preview(); beep(470); return; }
-  if (action === "cube") { state.expression += "^3"; preview(); beep(470); return; }
-  if (action === "factorial") { state.expression += "!"; preview(); beep(500); return; }
-  if (action === "equals") calculate();
-}
-function calculate() {
-  if (!state.expression) return;
-  try {
-    const result = format(evaluate(state.expression));
-    state.history.unshift({ expression: state.expression, result, time: Date.now() });
-    state.history = state.history.slice(0,60);
-    save(STORE.history, JSON.stringify(state.history));
-    state.expression = result;
-    $("#displayState").textContent = "Calculated";
-    animateResult(result);
+  function callFunction(name, value) {
+    switch (name) {
+      case "sin": return trig("sin", value);
+      case "cos": return trig("cos", value);
+      case "tan": return trig("tan", value);
+      case "asin": return trig("asin", value);
+      case "acos": return trig("acos", value);
+      case "atan": return trig("atan", value);
+      case "sqrt":
+        if (value < 0) throw new Error("√ domain error");
+        return Math.sqrt(value);
+      case "log":
+        if (value <= 0) throw new Error("log domain error");
+        return Math.log10(value);
+      case "ln":
+        if (value <= 0) throw new Error("ln domain error");
+        return Math.log(value);
+      case "abs":
+        return Math.abs(value);
+      case "inv":
+        if (Math.abs(value) < Number.EPSILON) throw new Error("Cannot divide by zero");
+        return 1 / value;
+      case "exp":
+        return Math.exp(value);
+      case "pow10":
+        return Math.pow(10, value);
+      case "powE":
+        return Math.exp(value);
+      default:
+        throw new Error("Unknown function");
+    }
+  }
+
+  function calculate(expression) {
+    const value = new Parser(expression).parse();
+    if (!Number.isFinite(value)) throw new Error("Math error");
+    return value;
+  }
+
+  /* ---------- Expression editing ---------- */
+
+  function isValueEnding(text) {
+    return /(?:[0-9.)%!]$|π$|e$|ANS$)/.test(text);
+  }
+
+  function isValueStarting(text) {
+    return /^(?:[0-9.(]|π|e|A)/.test(text);
+  }
+
+  function appendValue(value) {
+    if (!value) return;
+
+    const previous = expr.slice(-1);
+
+    // Implicit multiplication: 2π, 2(, 2sin(
+    if (isValueEnding(expr) && isValueStarting(value)) {
+      expr += "×";
+    }
+
+    // Avoid duplicate decimal points in the same number.
+    if (value === "." && /(?:^|[+\-×÷^(])\d*\.$/.test(expr)) return;
+
+    // Avoid accidental duplicate binary operators.
+    if (/^[+×÷]$/.test(value) && /[+×÷]$/.test(expr)) {
+      expr = expr.slice(0, -1) + value;
+    } else if (value === "−" && /[+×÷−]$/.test(expr)) {
+      expr = expr.slice(0, -1) + value;
+    } else {
+      expr += value;
+    }
+
+    update();
+  }
+
+  function clearExpression() {
+    expr = "";
+    update();
+    beep();
+    vibrate();
+  }
+
+  function backspace() {
+    if (!expr) return;
+    expr = expr.slice(0, -1);
+    update();
+    beep();
+  }
+
+  function appendFunction(name) {
+    const map = {
+      sin: "sin(",
+      cos: "cos(",
+      tan: "tan(",
+      log: "log(",
+      ln: "ln(",
+      sqrt: "sqrt(",
+      abs: "abs(",
+      inv: "inv(",
+      asin: "asin(",
+      acos: "acos(",
+      atan: "atan("
+    };
+
+    const value = map[name];
+    if (!value) return;
+
+    if (isValueEnding(expr)) expr += "×";
+    expr += value;
+    update();
+    beep();
+  }
+
+  function postfix(action) {
+    if (!expr) {
+      toast("Enter a value first");
+      return;
+    }
+
+    if (action === "square") expr += "^2";
+    if (action === "cube") expr += "^3";
+    if (action === "factorial") expr += "!";
+
+    update();
+    beep();
+    vibrate();
+  }
+
+  function equal() {
+    if (!expr.trim()) return;
+
+    try {
+      const numeric = calculate(expr);
+      const result = format(numeric);
+
+      history.unshift({
+        e: expr,
+        r: result,
+        t: Date.now()
+      });
+      history = history.slice(0, MAX_HISTORY);
+      saveJson(STORAGE.history, history);
+
+      lastAnswer = numeric;
+      save(STORAGE.answer, numeric);
+
+      expr = result;
+      update("Calculated");
+
+      if (els.result) {
+        els.result.classList.remove("pulse");
+        void els.result.offsetWidth;
+        els.result.classList.add("pulse");
+      }
+
+      renderHistory();
+      beep("equal");
+      vibrate(10);
+    } catch (error) {
+      showError(error?.message || "Invalid expression");
+    }
+  }
+
+  function showError(message) {
+    if (els.result) els.result.textContent = "Error";
+    if (els.state) els.state.textContent = message;
+
+    const display = $(".display");
+    if (display) {
+      display.classList.remove("shake");
+      void display.offsetWidth;
+      display.classList.add("shake");
+    }
+
+    beep("error");
+    vibrate(20);
+  }
+
+  function update(forcedState = null) {
+    if (els.expression) els.expression.textContent = expr || "0";
+    if (els.memory) els.memory.textContent = `M: ${format(memory)}`;
+
+    if (!expr) {
+      if (els.result) els.result.textContent = "0";
+      if (els.state) els.state.textContent = "Ready";
+      return;
+    }
+
+    try {
+      const value = calculate(expr);
+      if (els.result) els.result.textContent = format(value);
+      if (els.state) els.state.textContent = forcedState || "Preview";
+    } catch {
+      if (els.result) els.result.textContent = "…";
+      if (els.state) els.state.textContent = forcedState || "Editing";
+    }
+  }
+
+  /* ---------- Memory ---------- */
+
+  function memoryClear() {
+    memory = 0;
+    save(STORAGE.memory, memory);
+    update();
+    toast("Memory cleared");
+    beep();
+  }
+
+  function memoryRecall() {
+    appendValue(format(memory));
+    toast("Memory recalled");
+  }
+
+  function memoryAdd(sign = 1) {
+    try {
+      const value = expr ? calculate(expr) : lastAnswer;
+      memory += sign * value;
+      save(STORAGE.memory, memory);
+      update();
+      toast(sign > 0 ? "Added to memory" : "Subtracted from memory");
+      beep();
+    } catch {
+      toast("Invalid value");
+      beep("error");
+    }
+  }
+
+  /* ---------- History ---------- */
+
+  function renderHistory() {
+    if (!els.historyList) return;
+
+    if (!history.length) {
+      els.historyList.innerHTML =
+        '<div class="empty">No calculations yet.<br><br>Your recent results will appear here.</div>';
+      return;
+    }
+
+    els.historyList.innerHTML = history.map((item, index) => `
+      <div class="history-item" data-index="${index}" role="button" tabindex="0">
+        <div class="history-exp">${escapeHtml(item.e)}</div>
+        <div class="history-result">= ${escapeHtml(item.r)}</div>
+      </div>
+    `).join("");
+  }
+
+  function clearHistory() {
+    history = [];
+    saveJson(STORAGE.history, history);
     renderHistory();
-    beep(840,.11); buzz(14);
-  } catch (err) {
-    $("#result").textContent = "Error";
-    $("#displayState").textContent = err.message || "Invalid expression";
-    beep(150,.12); buzz(30);
-    setTimeout(preview, 900);
+    toast("History cleared");
+    beep();
   }
-}
-function animateResult(value) {
-  const r = $("#result");
-  r.textContent = value;
-  r.classList.remove("pop");
-  void r.offsetWidth;
-  r.classList.add("pop");
-}
-function renderHistory() {
-  const list = $("#historyList");
-  if (!state.history.length) {
-    list.innerHTML = '<div class="empty">No calculations yet.<br>Recent results will appear here.</div>';
-    return;
+
+  function restoreHistory(index) {
+    const item = history[index];
+    if (!item) return;
+    expr = item.e;
+    update();
+    toast("Expression restored");
+    beep();
   }
-  list.innerHTML = state.history.map((h,i) =>
-    `<article class="history-item" data-index="${i}" style="animation-delay:${Math.min(i*28,280)}ms">
-      <button class="delete-history" data-delete="${i}" aria-label="Delete calculation">×</button>
-      <div class="history-expression">${escapeHTML(h.expression)}</div>
-      <div class="history-result">= ${escapeHTML(h.result)}</div>
-    </article>`).join("");
-}
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function pressVisual(button, event) {
-  const r = button.getBoundingClientRect();
-  button.style.setProperty("--x", `${event.clientX-r.left}px`);
-  button.style.setProperty("--y", `${event.clientY-r.top}px`);
-  button.classList.remove("press","ripple");
-  void button.offsetWidth;
-  button.classList.add("press","ripple");
-  setTimeout(() => button.classList.remove("press"), 140);
-}
 
-$("#keypad").addEventListener("pointerdown", e => {
-  const b = e.target.closest(".key");
-  if (b) pressVisual(b,e);
-});
-$("#keypad").addEventListener("click", e => {
-  const b = e.target.closest(".key");
-  if (!b) return;
-  if (b.dataset.action) return action(b.dataset.action);
-  if (b.dataset.fn) {
-    let fn = b.dataset.fn;
-    if (state.second && ["sin","cos","tan"].includes(fn)) fn = "a"+fn;
-    state.expression += fn === "asin" || fn === "acos" || fn === "atan" ? fn+"(" : fn+"(";
-    preview(); beep(460); buzz(5); return;
+  function deleteHistory(index) {
+    if (!history[index]) return;
+    history.splice(index, 1);
+    saveJson(STORAGE.history, history);
+    renderHistory();
+    toast("Calculation deleted");
+    beep();
   }
-  add(b.dataset.value || "");
-});
 
-$("#degBtn").onclick = () => { state.angle="DEG"; save(STORE.angle,state.angle); preview(); beep(500); };
-$("#radBtn").onclick = () => { state.angle="RAD"; save(STORE.angle,state.angle); preview(); beep(500); };
-$("#secondBtn").onclick = () => {
-  state.second=!state.second;
-  $("#secondBtn").classList.toggle("active",state.second);
-  const labels = state.second ? ["sin⁻¹","cos⁻¹","tan⁻¹"] : ["sin","cos","tan"];
-  ["sin","cos","tan"].forEach((n,i)=>$(`[data-fn="${n}"]`).textContent=labels[i]);
-  showToast(state.second ? "Inverse functions ON" : "Inverse functions OFF");
-  beep(600); buzz(9);
-};
-$("#mcBtn").onclick = () => { state.memory=0; save(STORE.memory,0); preview(); showToast("Memory cleared"); beep(280); };
-$("#mrBtn").onclick = () => { add(format(state.memory)); beep(620); };
-$("#mPlusBtn").onclick = () => memoryChange(1);
-$("#mMinusBtn").onclick = () => memoryChange(-1);
-function memoryChange(sign) {
-  try { state.memory += sign * evaluate(state.expression); save(STORE.memory,state.memory); preview(); showToast(sign>0?"M+ saved":"M− saved"); beep(620); }
-  catch { showToast("Invalid value"); beep(180); }
-}
-$("#copyBtn").onclick = async () => {
-  try { await navigator.clipboard.writeText($("#result").textContent); showToast("Result copied"); beep(680); buzz(8); }
-  catch { showToast("Copy unavailable"); }
-};
-$("#clearHistoryBtn").onclick = () => { state.history=[]; save(STORE.history,"[]"); renderHistory(); showToast("History cleared"); beep(240); };
-$("#historyList").onclick = e => {
-  const del=e.target.closest("[data-delete]");
-  if(del){const i=Number(del.dataset.delete);state.history.splice(i,1);save(STORE.history,JSON.stringify(state.history));renderHistory();showToast("Calculation deleted");beep(280);return;}
-  const item=e.target.closest(".history-item");
-  if(item){state.expression=state.history[Number(item.dataset.index)].expression;preview();showToast("Expression restored");beep(520);}
-};
-$("#historyBtn").onclick=()=>$("#historySection").scrollIntoView({behavior:"smooth"});
-$("#soundBtn").onclick=()=>{state.sound=!state.sound;save(STORE.sound,state.sound?"on":"off");$("#soundBtn").textContent=state.sound?"🔊":"🔇";if(state.sound)beep(680);};
-$("#themeBtn").onclick=()=>{state.theme=document.body.classList.toggle("light")?"light":"dark";save(STORE.theme,state.theme);showToast(state.theme==="light"?"Light theme":"Dark theme");beep(520);};
+  /* ---------- UI state ---------- */
 
-document.addEventListener("keydown", e => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const k=e.key;
-  if(/[0-9.]/.test(k)) add(k);
-  else if(k==="+") add("+");
-  else if(k==="-") add("−");
-  else if(k==="*"){e.preventDefault();add("×");}
-  else if(k==="/"){e.preventDefault();add("÷");}
-  else if(k==="("||k===")") add(k);
-  else if(k==="Enter"||k==="="){e.preventDefault();calculate();}
-  else if(k==="Backspace"){e.preventDefault();state.expression=state.expression.slice(0,-1);preview();beep(320);}
-  else if(k==="Escape"){state.expression="";preview();beep(240);}
-});
+  function setAngle(mode) {
+    angle = mode === "RAD" ? "RAD" : "DEG";
+    save(STORAGE.angle, angle);
 
-if(state.theme==="light") document.body.classList.add("light");
-$("#soundBtn").textContent=state.sound?"🔊":"🔇";
-$("#year").textContent=new Date().getFullYear();
-preview(); renderHistory();
+    els.deg?.classList.toggle("active", angle === "DEG");
+    els.rad?.classList.toggle("active", angle === "RAD");
 
-window.addEventListener("load",()=>{
-  const splash = $("#splash");
-  const splashSeen = sessionStorage.getItem("sayeed.v8.splashSeen") === "1";
-  if (splashSeen) splash.classList.add("hide");
-  else {
-    sessionStorage.setItem("sayeed.v8.splashSeen", "1");
-    setTimeout(()=>splash.classList.add("hide"),850);
+    update();
+    toast(`${angle} mode`);
+    beep();
   }
-});
-if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+  function updateSecondButtons() {
+    els.second?.classList.toggle("active", second);
+    save(STORAGE.second, second ? "on" : "off");
+
+    const labels = second
+      ? { sin: "sin⁻¹", cos: "cos⁻¹", tan: "tan⁻¹", log: "10ˣ", ln: "eˣ" }
+      : { sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln" };
+
+    $$(".key[data-fn]").forEach((button) => {
+      const fn = button.dataset.fn;
+      if (labels[fn]) button.textContent = labels[fn];
+    });
+  }
+
+  function toggleSecond() {
+    second = !second;
+    updateSecondButtons();
+    toast(second ? "Inverse functions ON" : "Normal functions ON");
+    beep();
+    vibrate();
+  }
+
+  function setTheme(light) {
+    document.body.classList.toggle("light", light);
+    save(STORAGE.theme, light ? "light" : "dark");
+    toast(light ? "Light theme" : "Dark theme");
+    beep();
+  }
+
+  function toggleTheme() {
+    setTheme(!document.body.classList.contains("light"));
+  }
+
+  async function copyResult() {
+    const value = els.result?.textContent || "0";
+
+    try {
+      await navigator.clipboard.writeText(value);
+      toast("Result copied");
+      beep();
+    } catch {
+      // Clipboard fallback for older browsers / non-secure contexts.
+      try {
+        const area = document.createElement("textarea");
+        area.value = value;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+        toast("Result copied");
+        beep();
+      } catch {
+        toast("Copy unavailable");
+      }
+    }
+  }
+
+  function scrollHistory() {
+    els.historySection?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  /* ---------- Button dispatcher ---------- */
+
+  function handleButton(button) {
+    if (!button) return;
+
+    tap(button);
+
+    const action = button.dataset.action;
+    const value = button.dataset.value;
+    const fn = button.dataset.fn;
+
+    if (action === "clear") return clearExpression();
+    if (action === "backspace") return backspace();
+    if (action === "equals") return equal();
+    if (action === "square" || action === "cube" || action === "factorial") {
+      return postfix(action);
+    }
+
+    if (fn) {
+      if (second && (fn === "sin" || fn === "cos" || fn === "tan")) {
+        return appendFunction(`a${fn}`);
+      }
+
+      if (second && fn === "log") {
+        expr += isValueEnding(expr) ? "×10^(" : "10^(";
+        update();
+        beep();
+        return;
+      }
+
+      if (second && fn === "ln") {
+        expr += isValueEnding(expr) ? "×e^(" : "e^(";
+        update();
+        beep();
+        return;
+      }
+
+      return appendFunction(fn);
+    }
+
+    if (value) {
+      appendValue(value);
+      beep();
+      vibrate(5);
+    }
+  }
+
+  /* ---------- Keyboard ---------- */
+
+  function keyboard(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    const key = event.key;
+
+    if (/^[0-9.]$/.test(key)) {
+      appendValue(key);
+      return;
+    }
+
+    const operators = {
+      "+": "+",
+      "-": "−",
+      "*": "×",
+      "/": "÷",
+      "%": "%",
+      "(": "(",
+      ")": ")",
+      "^": "^"
+    };
+
+    if (operators[key]) {
+      event.preventDefault();
+      appendValue(operators[key]);
+      beep();
+      return;
+    }
+
+    if (key === "Enter" || key === "=") {
+      event.preventDefault();
+      equal();
+      return;
+    }
+
+  if (key === "Backspace") {
+      event.preventDefault();
+      backspace();
+      return;
+    }
+
+    if (key === "Escape" || key === "Delete") {
+      event.preventDefault();
+      clearExpression();
+      return;
+    }
+
+    if (key.toLowerCase() === "p") {
+      appendValue("π");
+    }
+  }
+  /* ---------- History gestures ---------- */
+
+  function historyClick(event) {
+    const item = event.target.closest(".history-item");
+    if (!item) return;
+
+    restoreHistory(Number(item.dataset.index));
+  }
+
+  function historyKeyboard(event) {
+    const item = event.target.closest(".history-item");
+    if (!item) return;
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      restoreHistory(Number(item.dataset.index));
+    }
+  }
+
+  /* ---------- Initialization ---------- */
+
+  function bind() {
+    els.keypad?.addEventListener("click", (event) => {
+      const button = event.target.closest(".key");
+      if (!button) return;
+      handleButton(button);
+    });
+
+    els.keypad?.addEventListener("pointerdown", (event) => {
+      const button = event.target.closest(".key");
+      if (button && sound) beep();
+    }, { passive: true });
+
+    els.copy?.addEventListener("click", copyResult);
+    els.deg?.addEventListener("click", () => setAngle("DEG"));
+    els.rad?.addEventListener("click", () => setAngle("RAD"));
+    els.second?.addEventListener("click", toggleSecond);
+
+    els.mc?.addEventListener("click", memoryClear);
+    els.mr?.addEventListener("click", memoryRecall);
+    els.mp?.addEventListener("click", () => memoryAdd(1));
+    els.mm?.addEventListener("click", () => memoryAdd(-1));
+
+    els.clearHistory?.addEventListener("click", clearHistory);
+    els.historyBtn?.addEventListener("click", scrollHistory);
+
+    els.sound?.addEventListener("click", () => {
+      sound = !sound;
+      save(STORAGE.sound, sound ? "on" : "off");
+      els.sound.textContent = sound ? "🔊" : "🔇";
+      toast(sound ? "Sound ON" : "Sound OFF");
+      if (sound) beep();
+    });
+
+    els.theme?.addEventListener("click", toggleTheme);
+
+    els.historyList?.addEventListener("click", historyClick);
+    els.historyList?.addEventListener("keydown", historyKeyboard);
+
+    document.addEventListener("keydown", keyboard);
+
+  // Prevent double-tap zoom on calculator buttons without blocking scrolling.
+    els.keypad?.addEventListener("dblclick", (event) => event.preventDefault());
+  }
+
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
+  function init() {
+    const savedTheme = localStorage.getItem(STORAGE.theme);
+    if (savedTheme === "light") document.body.classList.add("light");
+
+    if (els.sound) els.sound.textContent = sound ? "🔊" : "🔇";
+
+    setAngle(angle);
+    updateSecondButtons();
+    renderHistory();
+    update();
+
+    if (els.year) els.year.textContent = new Date().getFullYear();
+
+    bind();
+    registerServiceWorker();
+
+    // Keep splash lightweight and avoid blocking first interaction.
+    const splash = $("#splash");
+    if (splash) {
+      setTimeout(() => {
+        splash.classList.add("hide");
+        setTimeout(() => splash.remove(), 350);
+      }, 650);
+    }
+  }
+
+  init();
 })();
