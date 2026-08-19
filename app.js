@@ -4,11 +4,11 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const STORE = {
-  history: "sayeed.v7.history",
-  memory: "sayeed.v7.memory",
-  angle: "sayeed.v7.angle",
-  theme: "sayeed.v7.theme",
-  sound: "sayeed.v7.sound"
+  history: "sayeed.v8.history",
+  memory: "sayeed.v8.memory",
+  angle: "sayeed.v8.angle",
+  theme: "sayeed.v8.theme",
+  sound: "sayeed.v8.sound"
 };
 
 const state = {
@@ -337,6 +337,14 @@ $("#soundBtn").textContent=state.sound?"🔊":"🔇";
 $("#year").textContent=new Date().getFullYear();
 preview(); renderHistory();
 
-window.addEventListener("load",()=>setTimeout(()=>$("#splash").classList.add("hide"),900));
+window.addEventListener("load",()=>{
+  const splash = $("#splash");
+  const splashSeen = sessionStorage.getItem("sayeed.v8.splashSeen") === "1";
+  if (splashSeen) splash.classList.add("hide");
+  else {
+    sessionStorage.setItem("sayeed.v8.splashSeen", "1");
+    setTimeout(()=>splash.classList.add("hide"),850);
+  }
+});
 if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 })();
