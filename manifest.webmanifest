@@ -1,29 +1,9 @@
 {
-  "name": "Sayeed Calculator",
-  "short_name": "Sayeed",
-  "description": "Premium scientific calculator by Sayeed.",
-  "start_url": "./index.html",
-  "scope": "./",
+  "name": "Calculator",
+  "short_name": "Calculator",
+  "start_url": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#050812",
-  "theme_color": "#786cff",
-  "categories": [
-    "utilities",
-    "productivity"
-  ],
-  "icons": [
-    {
-      "src": "./icon.svg.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icon.svg.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "A simple and smooth calculator."
 }

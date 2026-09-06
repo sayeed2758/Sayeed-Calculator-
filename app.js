@@ -1,1081 +1,356 @@
-/* Sayeed Calculator — Advanced Engine v2
-   Clean, dependency-free, GitHub Pages / PWA friendly.
-   Works with the current index.html without requiring XML/Android files.
-*/
 (() => {
   "use strict";
 
-  const $ = (selector) => document.querySelector(selector);
-  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+  const $ = (s) => document.querySelector(s);
 
-  const els = {
-    expression: $("#expression"),
-    result: $("#result"),
-    state: $("#displayState"),
-    memory: $("#memoryText"),
-    keypad: $("#keypad"),
-    historyList: $("#historyList"),
-    historySection: $("#historySection"),
-    toast: $("#toast"),
-    year: $("#year"),
-    copy: $("#copyBtn"),
-    sound: $("#soundBtn"),
-    theme: $("#themeBtn"),
-    historyBtn: $("#historyBtn"),
-    deg: $("#degBtn"),
-    rad: $("#radBtn"),
-    second: $("#secondBtn"),
-    mc: $("#mcBtn"),
-    mr: $("#mrBtn"),
-    mp: $("#mPlusBtn"),
-    mm: $("#mMinusBtn"),
-    clearHistory: $("#clearHistoryBtn"),
-    historySearch: $("#historySearch"),
-    historyCount: $("#historyCount"),
-    exportHistory: $("#exportHistory")
+  const expressionEl = $("#expression");
+  const resultEl = $("#result");
+  const keypad = $("#keypad");
+  const toast = $("#toast");
+  const historyPanel = $("#historyPanel");
+  const settingsPanel = $("#settingsPanel");
+  const historyList = $("#historyList");
+  const historyEmpty = $("#historyEmpty");
+  const soundToggle = $("#soundToggle");
+
+  const STORAGE = {
+    history: "sayeed_calc_history_v2",
+    sound: "sayeed_calc_sound_v2"
   };
 
-  const STORAGE = Object.freeze({
-    memory: "sayeed_memory",
-    angle: "sayeed_angle",
-    sound: "sayeed_sound",
-    theme: "sayeed_theme",
-    history: "sayeed_history",
-    answer: "sayeed_answer",
-    second: "sayeed_second"
-  });
-
-  const readNumber = (key, fallback = 0) => {
-    const n = Number(localStorage.getItem(key));
-    return Number.isFinite(n) ? n : fallback;
-  };
-
-  const safeJson = (key, fallback) => {
-    try {
-      const value = JSON.parse(localStorage.getItem(key) || "");
-      return value ?? fallback;
-    } catch {
-      return fallback;
-    }
-  };
-
-  let expr = "";
-  let memory = readNumber(STORAGE.memory, 0);
-  let angle = localStorage.getItem(STORAGE.angle) === "RAD" ? "RAD" : "DEG";
-  let sound = localStorage.getItem(STORAGE.sound) !== "off";
-  let second = localStorage.getItem(STORAGE.second) === "on";
-  let lastAnswer = readNumber(STORAGE.answer, 0);
-  let history = safeJson(STORAGE.history, []);
-  if (!Array.isArray(history)) history = [];
-
-  const MAX_HISTORY = 100;
-  let historyQuery = "";
-
-  function save(key, value) {
-    try {
-      localStorage.setItem(key, String(value));
-    } catch {}
-  }
-
-  function saveJson(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
-  }
-
-  function format(value) {
-    if (!Number.isFinite(value)) throw new Error("Math error");
-    if (Math.abs(value) < 1e-12) value = 0;
-
-    const abs = Math.abs(value);
-    if (abs !== 0 && (abs >= 1e12 || abs < 1e-9)) {
-      return Number(value.toPrecision(12)).toString();
-    }
-
-    return Number(value.toPrecision(12)).toString();
-  }
-
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[c]));
-  }
-
-  function toast(message) {
-    if (!els.toast) return;
-    els.toast.textContent = message;
-    els.toast.classList.add("show");
-    clearTimeout(window.__sayeedToast);
-    window.__sayeedToast = setTimeout(() => {
-      els.toast.classList.remove("show");
-    }, 1400);
-  }
-
-  function vibrate(ms = 7) {
-    try {
-      if (navigator.vibrate) navigator.vibrate(ms);
-    } catch {}
-  }
-
+  let expression = "";
+  let justEvaluated = false;
+  let history = loadHistory();
+  let soundOn = localStorage.getItem(STORAGE.sound) === "on";
   let audioContext = null;
 
-  function beep(kind = "key") {
-    if (!sound) return;
+  function loadHistory() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      audioContext ||= new AudioCtx();
+      const value = JSON.parse(localStorage.getItem(STORAGE.history) || "[]");
+      return Array.isArray(value) ? value : [];
+    } catch {
+      return [];
+    }
+  }
 
-      if (audioContext.state === "suspended") {
-        audioContext.resume().catch(() => {});
-      }
+  function saveHistory() {
+    localStorage.setItem(STORAGE.history, JSON.stringify(history.slice(0, 50)));
+  }
 
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const now = audioContext.currentTime;
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove("show"), 1200);
+  }
 
-      oscillator.type = kind === "equal" ? "sine" : "triangle";
-      oscillator.frequency.value = kind === "equal" ? 720 : kind === "error" ? 180 : 430;
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(kind === "equal" ? 0.035 : 0.018, now + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
-
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(now);
-      oscillator.stop(now + 0.065);
+  function beep() {
+    if (!soundOn) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      audioContext ||= new Ctx();
+      const o = audioContext.createOscillator();
+      const g = audioContext.createGain();
+      o.type = "sine";
+      o.frequency.value = 460;
+      g.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.018, audioContext.currentTime + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.045);
+      o.connect(g).connect(audioContext.destination);
+      o.start();
+      o.stop(audioContext.currentTime + 0.05);
     } catch {}
   }
 
-  function tap(button) {
-    if (!button) return;
-    button.classList.remove("tap");
-    void button.offsetWidth;
-    button.classList.add("tap");
-    setTimeout(() => button.classList.remove("tap"), 120);
+  function cleanNumber(n) {
+    if (!Number.isFinite(n)) throw new Error("Math error");
+    if (Math.abs(n) < 1e-12) n = 0;
+    return Number(n.toPrecision(12)).toString();
   }
 
-  /* ---------- Math engine: no eval(), no Function() ---------- */
-
-  class Parser {
-    constructor(input) {
-      this.input = input
-        .replace(/×/g, "*")
-        .replace(/÷/g, "/")
-        .replace(/−/g, "-")
-        .replace(/\s+/g, "");
-      this.i = 0;
-    }
-
-    peek() {
-      return this.input[this.i] || "";
-    }
-
-    consume(char) {
-      if (this.input.startsWith(char, this.i)) {
-        this.i += char.length;
-        return true;
-      }
-      return false;
-    }
-
-    error(message = "Invalid expression") {
-      throw new Error(message);
-    }
-
-    parse() {
-      if (!this.input) return 0;
-      const value = this.parseExpression();
-      if (this.i !== this.input.length) this.error();
-      return value;
-    }
-
-    parseExpression() {
-      let value = this.parseTerm();
-
-      while (true) {
-        if (this.consume("+")) {
-          value += this.parseTerm();
-        } else if (this.consume("-")) {
-          value -= this.parseTerm();
-        } else {
-          break;
-        }
-      }
-
-      return value;
-    }
-
-    parseTerm() {
-      let value = this.parsePower();
-
-      while (true) {
-        if (this.consume("*")) {
-          value *= this.parsePower();
-        } else if (this.consume("/")) {
-          const divisor = this.parsePower();
-          if (Math.abs(divisor) < Number.EPSILON) this.error("Cannot divide by zero");
-          value /= divisor;
-        } else {
-          break;
-        }
-      }
-
-      return value;
-    }
-
-    parsePower() {
-      let base = this.parseUnary();
-      if (this.consume("^")) {
-        const exponent = this.parsePower();
-        base = Math.pow(base, exponent);
-      }
-      return base;
-    }
-
-    parseUnary() {
-      if (this.consume("+")) return +this.parseUnary();
-      if (this.consume("-")) return -this.parseUnary();
-
-      let value = this.parsePostfix();
-      return value;
-    }
-
-    parsePostfix() {
-      let value = this.parsePrimary();
-
-      while (true) {
-        if (this.consume("!")) {
-          value = factorial(value);
-        } else if (this.consume("%")) {
-          value /= 100;
-        } else {
-          break;
-        }
-      }
-
-      return value;
-    }
-
-    parsePrimary() {
-      const ch = this.peek();
-
-      if (ch === "(") {
-        this.i++;
-        const value = this.parseExpression();
-        if (!this.consume(")")) this.error("Missing )");
-        return value;
-      }
-
+  function tokenize(input) {
+    const tokens = [];
+    let i = 0;
+    while (i < input.length) {
+      const ch = input[i];
+      if (/\s/.test(ch)) { i++; continue; }
       if (/[0-9.]/.test(ch)) {
-        return this.parseNumber();
-      }
-
-      if (/[A-Za-z_]/.test(ch)) {
-        const name = this.parseIdentifier();
-
-        if (name === "PI") return Math.PI;
-        if (name === "E") return Math.E;
-        if (name === "ANS") return lastAnswer;
-
-        if (!this.consume("(")) this.error("Unknown value");
-        const argument = this.parseExpression();
-        if (!this.consume(")")) this.error("Missing )");
-
-        return callFunction(name, argument);
-      }
-
-      this.error();
-    }
-
-    parseNumber() {
-      const start = this.i;
-      let hasDigit = false;
-      let hasDot = false;
-
-      while (this.i < this.input.length) {
-        const ch = this.input[this.i];
-
-        if (/[0-9]/.test(ch)) {
-          hasDigit = true;
-          this.i++;
-        } else if (ch === "." && !hasDot) {
-          hasDot = true;
-          this.i++;
-        } else {
-          break;
+        let start = i;
+        let dots = 0;
+        while (i < input.length && /[0-9.]/.test(input[i])) {
+          if (input[i] === ".") dots++;
+          if (dots > 1) throw new Error("Invalid number");
+          i++;
         }
+        const raw = input.slice(start, i);
+        if (raw === ".") throw new Error("Invalid number");
+        tokens.push({ type: "number", value: Number(raw) });
+        continue;
       }
+      if ("+-×÷*/%".includes(ch)) { tokens.push({ type: "op", value: ch }); i++; continue; }
+      if (ch === "(") { tokens.push({ type: "lparen" }); i++; continue; }
+      if (ch === ")") { tokens.push({ type: "rparen" }); i++; continue; }
+      throw new Error("Invalid expression");
+    }
+    return tokens;
+  }
 
-      if (!hasDigit) this.error("Invalid number");
+  function precedence(op) {
+    if (op === "u+") return 3;
+    if (op === "u-") return 3;
+    if (op === "%") return 4;
+    if (op === "×" || op === "÷" || op === "*" || op === "/") return 2;
+    if (op === "+" || op === "−" || op === "-") return 1;
+    return 0;
+  }
 
-      if (this.peek() === "e" || this.peek() === "E") {
-        const exponentStart = this.i;
-        this.i++;
+  function applyOp(a, b, op) {
+    if (op === "+") return a + b;
+    if (op === "−" || op === "-") return a - b;
+    if (op === "×" || op === "*") return a * b;
+    if (op === "÷" || op === "/") {
+      if (Math.abs(b) < Number.EPSILON) throw new Error("Cannot divide by zero");
+      return a / b;
+    }
+    if (op === "%") return a / 100;
+    throw new Error("Invalid operator");
+  }
 
-        if (this.peek() === "+" || this.peek() === "-") this.i++;
+  function calculate(input) {
+    const tokens = tokenize(input.replace(/\u2212/g, "−"));
+    if (!tokens.length) return 0;
 
-        const expDigitsStart = this.i;
-        while (/[0-9]/.test(this.peek())) this.i++;
+    const values = [];
+    const ops = [];
+    let expectingValue = true;
 
-        if (this.i === expDigitsStart) {
-          this.i = exponentStart;
+    const applyTop = () => {
+      const op = ops.pop();
+      if (op === "u+" || op === "u-") {
+        const v = values.pop();
+        if (v === undefined) throw new Error("Invalid expression");
+        values.push(op === "u-" ? -v : v);
+        return;
+      }
+      const b = values.pop();
+      const a = values.pop();
+      if (a === undefined || b === undefined) throw new Error("Invalid expression");
+      values.push(applyOp(a, b, op));
+    };
+
+    for (const token of tokens) {
+      if (token.type === "number") {
+        values.push(token.value);
+        expectingValue = false;
+      } else if (token.type === "lparen") {
+        ops.push("(");
+        expectingValue = true;
+      } else if (token.type === "rparen") {
+        while (ops.length && ops.at(-1) !== "(") applyTop();
+        if (ops.pop() !== "(") throw new Error("Missing bracket");
+        expectingValue = false;
+      } else {
+        let op = token.value;
+        if (expectingValue && (op === "+" || op === "-" || op === "−")) op = op === "+" ? "u+" : "u-";
+        if (op === "%") {
+          if (expectingValue) throw new Error("Invalid percent");
+          values.push(applyOp(values.pop(), 0, "%"));
+          expectingValue = false;
+          continue;
         }
+        if (expectingValue && !op.startsWith("u")) throw new Error("Invalid expression");
+        while (ops.length && ops.at(-1) !== "(" && precedence(ops.at(-1)) >= precedence(op)) applyTop();
+        ops.push(op);
+        expectingValue = true;
       }
-
-      const raw = this.input.slice(start, this.i);
-      const value = Number(raw);
-
-      if (!Number.isFinite(value)) this.error("Invalid number");
-      return value;
     }
 
-    parseIdentifier() {
-      const start = this.i;
-      while (/[A-Za-z_]/.test(this.peek())) this.i++;
-      return this.input.slice(start, this.i);
+    if (expectingValue) throw new Error("Incomplete expression");
+    while (ops.length) {
+      if (ops.at(-1) === "(") throw new Error("Missing bracket");
+      applyTop();
     }
+    if (values.length !== 1) throw new Error("Invalid expression");
+    return cleanNumber(values[0]);
   }
 
-  function factorial(value) {
-    if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
-      throw new Error("Factorial needs a non-negative integer");
-    }
-    if (value > 170) throw new Error("Factorial too large");
-
-    let result = 1;
-    for (let i = 2; i <= value; i++) result *= i;
-    return result;
+  function lastNumberStart(text) {
+    let i = text.length - 1;
+    if (i < 0) return 0;
+    while (i >= 0 && /[0-9.]/.test(text[i])) i--;
+    return i + 1;
   }
 
-  function toRadians(value) {
-    return angle === "DEG" ? value * Math.PI / 180 : value;
-  }
-
-  function fromRadians(value) {
-    return angle === "DEG" ? value * 180 / Math.PI : value;
-  }
-
-  function trig(name, value) {
-    const r = toRadians(value);
-
-    if (name === "sin") return Math.sin(r);
-    if (name === "cos") return Math.cos(r);
-    if (name === "tan") {
-      const c = Math.cos(r);
-      if (Math.abs(c) < 1e-12) throw new Error("Undefined tangent");
-      return Math.tan(r);
-    }
-
-    if (name === "asin") {
-      if (value < -1 || value > 1) throw new Error("asin domain error");
-      return fromRadians(Math.asin(value));
-    }
-
-    if (name === "acos") {
-      if (value < -1 || value > 1) throw new Error("acos domain error");
-      return fromRadians(Math.acos(value));
-    }
-
-    if (name === "atan") return fromRadians(Math.atan(value));
-
-    throw new Error("Unknown function");
-  }
-
-  function callFunction(name, value) {
-    switch (name) {
-      case "sin": return trig("sin", value);
-      case "cos": return trig("cos", value);
-      case "tan": return trig("tan", value);
-      case "asin": return trig("asin", value);
-      case "acos": return trig("acos", value);
-      case "atan": return trig("atan", value);
-      case "sqrt":
-        if (value < 0) throw new Error("√ domain error");
-        return Math.sqrt(value);
-      case "log":
-        if (value <= 0) throw new Error("log domain error");
-        return Math.log10(value);
-      case "ln":
-        if (value <= 0) throw new Error("ln domain error");
-        return Math.log(value);
-      case "abs":
-        return Math.abs(value);
-      case "inv":
-        if (Math.abs(value) < Number.EPSILON) throw new Error("Cannot divide by zero");
-        return 1 / value;
-      case "exp":
-        return Math.exp(value);
-      case "pow10":
-        return Math.pow(10, value);
-      case "powE":
-        return Math.exp(value);
-      default:
-        throw new Error("Unknown function");
-    }
-  }
-
-  function calculate(expression) {
-    const value = new Parser(expression).parse();
-    if (!Number.isFinite(value)) throw new Error("Math error");
-    return value;
-  }
-
-  /* ---------- Expression editing ---------- */
-
-  function isValueEnding(text) {
-    return /(?:[0-9.)%!]$|π$|e$|ANS$)/.test(text);
-  }
-
-  function isImplicitMultiplyStart(text) {
-    // IMPORTANT: digits are deliberately NOT included here.
-    // Therefore 5 followed by 8 becomes 58, never 5×8.
-    return /^(?:\(|π|e|ANS|sin|cos|tan|asin|acos|atan|log|ln|sqrt|abs|inv)/.test(text);
-  }
-
-  function appendValue(value) {
-    if (!value) return;
-
-    const previous = expr.slice(-1);
-
-    // Implicit multiplication: 2π, 2(, 2sin(
-    if (isValueEnding(expr) && isImplicitMultiplyStart(value)) {
-      expr += "×";
-    }
-
-    // Avoid duplicate decimal points in the same number.
-    if (value === "." && /(?:^|[+\-×÷^(])\d*\.$/.test(expr)) return;
-
-    // Avoid accidental duplicate binary operators.
-    if (/^[+×÷]$/.test(value) && /[+×÷]$/.test(expr)) {
-      expr = expr.slice(0, -1) + value;
-    } else if (value === "−" && /[+×÷−]$/.test(expr)) {
-      expr = expr.slice(0, -1) + value;
-    } else {
-      expr += value;
-    }
-
-    update();
-  }
-
-  function clearExpression() {
-    expr = "";
-    update();
+  function append(value) {
     beep();
-    vibrate();
+    if (justEvaluated && /[0-9.]/.test(value)) expression = "";
+    justEvaluated = false;
+
+    const last = expression.at(-1) || "";
+    const binary = ["+", "−", "×", "÷"];
+
+    if (/[0-9.]/.test(value[0])) {
+      const start = lastNumberStart(expression);
+      const current = expression.slice(start);
+      if (value === "." && current.includes(".")) return;
+      if (current === "0" && value !== "." && value !== "00") expression = expression.slice(0, start);
+      if (current === "0" && value === "00") return;
+    }
+
+    if (binary.includes(value)) {
+      if (!expression && value !== "−") return;
+      if (binary.includes(last)) expression = expression.slice(0, -1);
+    }
+
+    if (value === "00" && (!expression || binary.includes(last) || last === "(")) value = "0";
+    expression += value;
+    render();
+  }
+
+  function clearAll() {
+    expression = "";
+    justEvaluated = false;
+    render();
+    beep();
   }
 
   function backspace() {
-    if (!expr) return;
-    expr = expr.slice(0, -1);
-    update();
+    if (!expression) return;
+    expression = expression.slice(0, -1);
+    justEvaluated = false;
+    render();
     beep();
   }
 
-  function appendFunction(name) {
-    const map = {
-      sin: "sin(",
-      cos: "cos(",
-      tan: "tan(",
-      log: "log(",
-      ln: "ln(",
-      sqrt: "sqrt(",
-      abs: "abs(",
-      inv: "inv(",
-      asin: "asin(",
-      acos: "acos(",
-      atan: "atan("
-    };
-
-    const value = map[name];
-    if (!value) return;
-
-    if (isValueEnding(expr)) expr += "×";
-    expr += value;
-    update();
-    beep();
-  }
-
-  function postfix(action) {
-    if (!expr) {
-      toast("Enter a value first");
-      return;
-    }
-
-    if (action === "square") expr += "^2";
-    if (action === "cube") expr += "^3";
-    if (action === "factorial") expr += "!";
-
-    update();
-    beep();
-    vibrate();
-  }
-
-  function equal() {
-    if (!expr.trim()) return;
-
-    try {
-      const numeric = calculate(expr);
-      const result = format(numeric);
-
-      history.unshift({
-        e: expr,
-        r: result,
-        t: Date.now()
-      });
-      history = history.slice(0, MAX_HISTORY);
-      saveJson(STORAGE.history, history);
-
-      lastAnswer = numeric;
-      save(STORAGE.answer, numeric);
-
-      expr = result;
-      update("Calculated");
-
-      if (els.result) {
-        els.result.classList.remove("pulse");
-        void els.result.offsetWidth;
-        els.result.classList.add("pulse");
+  function toggleSign() {
+    if (!expression) return;
+    const start = lastNumberStart(expression);
+    const number = expression.slice(start);
+    if (!number) return;
+    if (start > 0 && expression[start - 1] === "−") {
+      const before = expression[start - 2] || "";
+      if (start === 1 || ["+", "−", "×", "÷", "("].includes(before)) {
+        expression = expression.slice(0, start - 1) + number;
+      } else {
+        expression = expression.slice(0, start) + "−" + number;
       }
-
-      renderHistory();
-      beep("equal");
-      vibrate(10);
-    } catch (error) {
-      showError(error?.message || "Invalid expression");
+    } else {
+      expression = expression.slice(0, start) + "−" + number;
     }
-  }
-
-  function showError(message) {
-    if (els.result) els.result.textContent = "Error";
-    if (els.state) els.state.textContent = message;
-
-    const display = $(".display");
-    if (display) {
-      display.classList.remove("shake");
-      void display.offsetWidth;
-      display.classList.add("shake");
-    }
-
-    beep("error");
-    vibrate(20);
-  }
-
-  function update(forcedState = null) {
-    if (els.expression) els.expression.textContent = expr || "0";
-    if (els.memory) els.memory.textContent = `M: ${format(memory)}`;
-
-    if (!expr) {
-      if (els.result) els.result.textContent = "0";
-      if (els.state) els.state.textContent = "Ready";
-      return;
-    }
-
-    try {
-      const value = calculate(expr);
-      if (els.result) els.result.textContent = format(value);
-      if (els.state) els.state.textContent = forcedState || "Preview";
-    } catch {
-      if (els.result) els.result.textContent = "…";
-      if (els.state) els.state.textContent = forcedState || "Editing";
-    }
-  }
-
-  /* ---------- Memory ---------- */
-
-  function memoryClear() {
-    memory = 0;
-    save(STORAGE.memory, memory);
-    update();
-    toast("Memory cleared");
+    render();
     beep();
   }
 
-  function memoryRecall() {
-    appendValue(format(memory));
-    toast("Memory recalled");
-  }
-
-  function memoryAdd(sign = 1) {
+  function equals() {
+    if (!expression) return;
     try {
-      const value = expr ? calculate(expr) : lastAnswer;
-      memory += sign * value;
-      save(STORAGE.memory, memory);
-      update();
-      toast(sign > 0 ? "Added to memory" : "Subtracted from memory");
+      const value = calculate(expression);
+      const result = String(value);
+      addHistory(expression, result);
+      expression = result;
+      resultEl.textContent = result;
+      justEvaluated = true;
       beep();
-    } catch {
-      toast("Invalid value");
-      beep("error");
+    } catch (error) {
+      showToast(error.message || "Math error");
+      resultEl.textContent = "Error";
     }
   }
 
-  /* ---------- History ---------- */
+  function addHistory(expr, result) {
+    history.unshift({ expr, result, at: Date.now() });
+    history = history.slice(0, 50);
+    saveHistory();
+  }
 
-  function getFilteredHistory() {
-    const q = historyQuery.trim().toLowerCase();
-    if (!q) return history;
-    return history.filter(item =>
-      String(item.e).toLowerCase().includes(q) ||
-      String(item.r).toLowerCase().includes(q)
-    );
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return d.toISOString().slice(0, 10).replaceAll("-", ".");
   }
 
   function renderHistory() {
-    if (!els.historyList) return;
-
-    const filtered = getFilteredHistory();
-
-    if (els.historyCount) {
-      els.historyCount.textContent =
-        `${filtered.length} calculation${filtered.length === 1 ? "" : "s"}`;
-    }
-
-    if (!filtered.length) {
-      els.historyList.innerHTML = history.length && historyQuery
-        ? '<div class="empty">No matching calculations.</div>'
-        : '<div class="empty">No calculations yet.<br><br>Your recent results will appear here.</div>';
-      return;
-    }
-
-    els.historyList.innerHTML = filtered.map((item) => {
-      const originalIndex = history.indexOf(item);
-      return `
-      <div class="history-item" data-index="${originalIndex}" role="button" tabindex="0">
-        <div class="history-exp">${escapeHtml(item.e)}</div>
-        <div class="history-result">= ${escapeHtml(item.r)}</div>
-        <button class="history-delete" data-delete="${originalIndex}" type="button" aria-label="Delete calculation">×</button>
-      </div>`;
-    }).join("");
-  }
-
-  function exportHistory() {
-    if (!history.length) {
-      toast("Nothing to export");
-      beep("error");
-      return;
-    }
-
-    const lines = [
-      "Sayeed Calculator — Calculation History",
-      `Exported: ${new Date().toLocaleString()}`,
-      "",
-      ...history.map((item, i) => `${i + 1}. ${item.e} = ${item.r}`)
-    ];
-
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const filename =
-      `Sayeed-Calculator-History-${new Date().toISOString().slice(0,10)}.txt`;
-
-    const finishDownload = () => {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.setAttribute("download", filename);
-      link.rel = "noopener";
-      link.style.position = "fixed";
-      link.style.left = "-9999px";
-      document.body.appendChild(link);
-
-      // Android Chrome handles a trusted click on a Blob URL reliably.
-      link.dispatchEvent(new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-        view: window
-      }));
-
-      setTimeout(() => link.remove(), 100);
-    };
-
-    try {
-      finishDownload();
-      toast("Export started");
-      beep("equal");
-    } catch {
-      try {
-        const file = new File([blob], filename, { type: "text/plain" });
-        if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-          navigator.share({
-            title: "Sayeed Calculator History",
-            text: "Sayeed Calculator History",
-            files: [file]
-          }).then(
-            () => toast("History shared"),
-            () => window.open(url, "_blank", "noopener,noreferrer")
-          );
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
-      } catch {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
-    } finally {
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    historyList.innerHTML = "";
+    historyEmpty.style.display = history.length ? "none" : "block";
+    for (const item of history) {
+      const row = document.createElement("article");
+      row.className = "history-item";
+      row.innerHTML = `<div class="history-date">${formatDate(item.at)}</div><div class="history-expression">${escapeHtml(item.expr)}</div><div class="history-result">=${escapeHtml(item.result)}</div>`;
+      historyList.appendChild(row);
     }
   }
 
-  function clearHistory() {
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  }
+
+  function openPanel(panel) {
+    panel.classList.remove("hidden");
+    panel.setAttribute("aria-hidden", "false");
+  }
+
+  function closePanel(panel) {
+    panel.classList.add("hidden");
+    panel.setAttribute("aria-hidden", "true");
+  }
+
+  function render() {
+    expressionEl.textContent = expression || "0";
+    resultEl.textContent = expression ? "" : "0";
+  }
+
+  keypad.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const action = button.dataset.action;
+    if (action === "clear") return clearAll();
+    if (action === "backspace") return backspace();
+    if (action === "toggle-sign") return toggleSign();
+    if (action === "equals") return equals();
+    if (button.dataset.value) append(button.dataset.value);
+  });
+
+  $("#historyBtn").addEventListener("click", () => { renderHistory(); openPanel(historyPanel); });
+  $("#settingsBtn").addEventListener("click", () => { syncSoundUI(); openPanel(settingsPanel); });
+  $("#clearHistory").addEventListener("click", () => {
     history = [];
-    saveJson(STORAGE.history, history);
+    saveHistory();
     renderHistory();
-    toast("History cleared");
-    beep();
+  });
+
+  document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.close === "history") closePanel(historyPanel);
+    if (button.dataset.close === "settings") closePanel(settingsPanel);
+  }));
+
+  soundToggle.addEventListener("click", () => {
+    soundOn = !soundOn;
+    localStorage.setItem(STORAGE.sound, soundOn ? "on" : "off");
+    syncSoundUI();
+    if (soundOn) beep();
+  });
+
+  function syncSoundUI() {
+    soundToggle.classList.toggle("on", soundOn);
+    soundToggle.setAttribute("aria-pressed", String(soundOn));
   }
 
-  function restoreHistory(index) {
-    const item = history[index];
-    if (!item) return;
-    expr = item.e;
-    update();
-    toast("Expression restored");
-    beep();
-  }
-
-  function deleteHistory(index) {
-    if (!history[index]) return;
-    history.splice(index, 1);
-    saveJson(STORAGE.history, history);
-    renderHistory();
-    toast("Calculation deleted");
-    beep();
-  }
-
-  /* ---------- UI state ---------- */
-
-  function setAngle(mode) {
-    angle = mode === "RAD" ? "RAD" : "DEG";
-    save(STORAGE.angle, angle);
-
-    els.deg?.classList.toggle("active", angle === "DEG");
-    els.rad?.classList.toggle("active", angle === "RAD");
-
-    update();
-    toast(`${angle} mode`);
-    beep();
-  }
-
-  function updateSecondButtons() {
-    els.second?.classList.toggle("active", second);
-    save(STORAGE.second, second ? "on" : "off");
-
-    const labels = second
-      ? { sin: "sin⁻¹", cos: "cos⁻¹", tan: "tan⁻¹", log: "10ˣ", ln: "eˣ" }
-      : { sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln" };
-
-    $$(".key[data-fn]").forEach((button) => {
-      const fn = button.dataset.fn;
-      if (labels[fn]) button.textContent = labels[fn];
-    });
-  }
-
-  function toggleSecond() {
-    second = !second;
-    updateSecondButtons();
-    toast(second ? "Inverse functions ON" : "Normal functions ON");
-    beep();
-    vibrate();
-  }
-   function setTheme(light) {
-    document.body.classList.toggle("light", light);
-    save(STORAGE.theme, light ? "light" : "dark");
-    toast(light ? "Light theme" : "Dark theme");
-    beep();
-  }
-
-  function toggleTheme() {
-    setTheme(!document.body.classList.contains("light"));
-  }
-
-  async function copyResult() {
-    const value = els.result?.textContent || "0";
-
-    try {
-      await navigator.clipboard.writeText(value);
-      toast("Result copied");
-      beep();
-    } catch {
-       // Clipboard fallback for older browsers / non-secure contexts.
-      try {
-        const area = document.createElement("textarea");
-        area.value = value;
-        area.style.position = "fixed";
-        area.style.opacity = "0";
-        document.body.appendChild(area);
-        area.select();
-        document.execCommand("copy");
-        area.remove();
-        toast("Result copied");
-        beep();
-      } catch {
-        toast("Copy unavailable");
+  document.addEventListener("keydown", (event) => {
+    if (!historyPanel.classList.contains("hidden") || !settingsPanel.classList.contains("hidden")) {
+      if (event.key === "Escape") {
+        closePanel(historyPanel);
+        closePanel(settingsPanel);
       }
-    }
-  }
-
-  function scrollHistory() {
-    els.historySection?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  }
-   /* ---------- Button dispatcher ---------- */
-
-  function handleButton(button) {
-    if (!button) return;
-
-    tap(button);
-
-    const action = button.dataset.action;
-    const value = button.dataset.value;
-    const fn = button.dataset.fn;
-
-    if (action === "clear") return clearExpression();
-    if (action === "backspace") return backspace();
-    if (action === "equals") return equal();
-    if (action === "square" || action === "cube" || action === "factorial") {
-      return postfix(action);
-    }
-
-    if (fn) {
-      if (second && (fn === "sin" || fn === "cos" || fn === "tan")) {
-        return appendFunction(`a${fn}`);
-      }
-
-      if (second && fn === "log") {
-        expr += isValueEnding(expr) ? "×10^(" : "10^(";
-        update();
-        beep();
-        return;
-      }
-
-      if (second && fn === "ln") {
-        expr += isValueEnding(expr) ? "×e^(" : "e^(";
-        update();
-        beep();
-        return;
-      }
-
-      return appendFunction(fn);
-    }
-
-    if (value) {
-      appendValue(value);
-      beep();
-      vibrate(5);
-    }
-  }
-/* ---------- Button dispatcher ---------- */
-
-  function handleButton(button) {
-    if (!button) return;
-
-    tap(button);
-
-    const action = button.dataset.action;
-    const value = button.dataset.value;
-    const fn = button.dataset.fn;
-
-    if (action === "clear") return clearExpression();
-    if (action === "backspace") return backspace();
-    if (action === "equals") return equal();
-    if (action === "square" || action === "cube" || action === "factorial") {
-      return postfix(action);
-    }
-
-    if (fn) {
-      if (second && (fn === "sin" || fn === "cos" || fn === "tan")) {
-        return appendFunction(`a${fn}`);
-      }
-
-      if (second && fn === "log") {
-        expr += isValueEnding(expr) ? "×10^(" : "10^(";
-        update();
-        beep();
-        return;
-      }
-
-      if (second && fn === "ln") {
-        expr += isValueEnding(expr) ? "×e^(" : "e^(";
-        update();
-        beep();
-        return;
-      }
-
-      return appendFunction(fn);
-    }
-
-    if (value) {
-      appendValue(value);
-      beep();
-      vibrate(5);
-    }
-  }
-   /* ---------- Keyboard ---------- */
-
-  function keyboard(event) {
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
-
-    const key = event.key;
-
-    if (/^[0-9.]$/.test(key)) {
-      appendValue(key);
       return;
     }
+    if (/^[0-9.]$/.test(event.key)) append(event.key);
+    else if (["+", "-", "*", "/"].includes(event.key)) append(event.key === "*" ? "×" : event.key === "/" ? "÷" : event.key === "-" ? "−" : "+");
+    else if (event.key === "Enter" || event.key === "=") equals();
+    else if (event.key === "Backspace") backspace();
+    else if (event.key === "Escape") clearAll();
+    else if (event.key === "%") append("%");
+  });
 
-    const operators = {
-      "+": "+",
-      "-": "−",
-      "*": "×",
-      "/": "÷",
-      "%": "%",
-      "(": "(",
-      ")": ")",
-      "^": "^"
-    };
-
-    if (operators[key]) {
-      event.preventDefault();
-      appendValue(operators[key]);
-      beep();
-      return;
-    }
-
-    if (key === "Enter" || key === "=") {
-      event.preventDefault();
-      equal();
-      return;
-    }
-
-    if (key === "Backspace") {
-      event.preventDefault();
-      backspace();
-      return;
-    }
-
-    if (key === "Escape" || key === "Delete") {
-      event.preventDefault();
-      clearExpression();
-      return;
-    }
-
-    if (key.toLowerCase() === "p") {
-      appendValue("π");
-    }
-  }
-   /* ---------- History gestures ---------- */
-
-  function historyClick(event) {
-    const del = event.target.closest("[data-delete]");
-    if (del) {
-      deleteHistory(Number(del.dataset.delete));
-      return;
-    }
-
-    const item = event.target.closest(".history-item");
-    if (!item) return;
-    restoreHistory(Number(item.dataset.index));
-  }
-
-  function historyKeyboard(event) {
-    const item = event.target.closest(".history-item");
-    if (!item) return;
-
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      restoreHistory(Number(item.dataset.index));
-    }
-  }
-   /* ---------- Initialization ---------- */
-
-  function bind() {
-    els.keypad?.addEventListener("click", (event) => {
-      const button = event.target.closest(".key");
-      if (!button) return;
-      handleButton(button);
-    });
-
-    els.keypad?.addEventListener("pointerdown", (event) => {
-      const button = event.target.closest(".key");
-      if (button && sound) beep();
-    }, { passive: true });
-
-    els.copy?.addEventListener("click", copyResult);
-    els.deg?.addEventListener("click", () => setAngle("DEG"));
-    els.rad?.addEventListener("click", () => setAngle("RAD"));
-    els.second?.addEventListener("click", toggleSecond);
-
-    els.mc?.addEventListener("click", memoryClear);
-    els.mr?.addEventListener("click", memoryRecall);
-    els.mp?.addEventListener("click", () => memoryAdd(1));
-    els.mm?.addEventListener("click", () => memoryAdd(-1));
-
-    els.clearHistory?.addEventListener("click", clearHistory);
-    els.historyBtn?.addEventListener("click", scrollHistory);
-    els.exportHistory?.addEventListener("click", exportHistory);
-    els.historySearch?.addEventListener("input", (event) => {
-      historyQuery = event.target.value || "";
-      renderHistory();
-    });
-
-    els.sound?.addEventListener("click", () => {
-      sound = !sound;
-      save(STORAGE.sound, sound ? "on" : "off");
-      els.sound.textContent = sound ? "🔊" : "🔇";
-      toast(sound ? "Sound ON" : "Sound OFF");
-      if (sound) beep();
-    });
-
-    els.theme?.addEventListener("click", toggleTheme);
-
-    els.historyList?.addEventListener("click", historyClick);
-    els.historyList?.addEventListener("keydown", historyKeyboard);
-
-    document.addEventListener("keydown", keyboard);
-// Prevent double-tap zoom on calculator buttons without blocking scrolling.
-    els.keypad?.addEventListener("dblclick", (event) => event.preventDefault());
-  }
-
-  function registerServiceWorker() {
-    if (!("serviceWorker" in navigator)) return;
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
-    });
-  }
-
-  function init() {
-    const savedTheme = localStorage.getItem(STORAGE.theme);
-    if (savedTheme === "light") document.body.classList.add("light");
-
-    if (els.sound) els.sound.textContent = sound ? "🔊" : "🔇";
-
-    setAngle(angle);
-    updateSecondButtons();
-    renderHistory();
-    update();
-
-    if (els.year) els.year.textContent = new Date().getFullYear();
-
-    bind();
-    registerServiceWorker();
-
-    // Keep splash lightweight and avoid blocking first interaction.
-    const splash = $("#splash");
-    if (splash) {
-      setTimeout(() => {
-        splash.classList.add("hide");
-        setTimeout(() => splash.remove(), 350);
-      }, 650);
-    }
-  }
-
-  init();
+  syncSoundUI();
+  render();
 })();
-
-     
- 
