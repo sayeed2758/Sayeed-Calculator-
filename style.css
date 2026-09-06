@@ -34,11 +34,11 @@ button { font: inherit; }
 
 .topbar {
   position: relative;
-  flex: 0 0 clamp(58px, 7.5dvh, 72px);
+  flex: 0 0 clamp(56px, 6.5dvh, 68px);
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: clamp(12px, 3vw, 20px);
+  gap: clamp(10px, 2.6vw, 18px);
   z-index: 5;
 }
 
@@ -57,8 +57,8 @@ button { font: inherit; }
   cursor: pointer;
 }
 .icon-btn svg {
-  width: 31px;
-  height: 31px;
+  width: 32px;
+  height: 32px;
   display: block;
   fill: none;
   stroke: currentColor;
@@ -74,32 +74,32 @@ button { font: inherit; }
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 4px 4px clamp(16px, 2.4dvh, 28px);
+  padding: 2px 4px clamp(10px, 1.5dvh, 18px);
 }
 .display-values { text-align: right; }
 .expression {
-  min-height: 38px;
-  color: var(--muted);
-  font-size: clamp(23px, 5.6vw, 32px);
+  min-height: 34px;
+  color: #929292;
+  font-size: clamp(24px, 5.8vw, 34px);
   font-weight: 400;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
 .result {
-  min-height: 70px;
-  margin-top: 4px;
-  color: #1f1f1f;
-  font-size: clamp(55px, 12.6vw, 80px);
-  font-weight: 400;
-  line-height: .96;
-  letter-spacing: -2.8px;
+  min-height: 68px;
+  margin-top: 2px;
+  color: #171717;
+  font-size: clamp(60px, 13.6vw, 86px);
+  font-weight: 700;
+  line-height: .94;
+  letter-spacing: -3px;
   overflow-wrap: anywhere;
 }
 .watermark {
-  margin-top: clamp(13px, 2dvh, 20px);
+  margin-top: clamp(8px, 1.2dvh, 14px);
   text-align: center;
   color: #c1c1c1;
-  font-size: clamp(12px, 3.2vw, 15px);
+  font-size: clamp(12px, 3vw, 15px);
   font-weight: 400;
   line-height: 1.15;
   user-select: none;
@@ -107,15 +107,17 @@ button { font: inherit; }
 }
 
 .keypad {
-  flex: 0 0 clamp(438px, 52dvh, 660px);
+  flex: 0 0 clamp(440px, 44dvh, 690px);
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-rows: repeat(5, minmax(0, 1fr));
-  gap: clamp(10px, 2.3vw, 20px);
-  padding-top: 0;
+  gap: clamp(9px, 1.9vw, 16px);
+  padding-top: 2px;
 }
 .key {
+  width: min(100%, 100%);
+  aspect-ratio: 1 / 1;
   min-width: 0;
   min-height: 0;
   border: 0;
@@ -124,14 +126,15 @@ button { font: inherit; }
   color: #5d5d5d;
   display: grid;
   place-items: center;
-  font-size: clamp(27px, 6.8vw, 40px);
+  font-size: clamp(29px, 7vw, 42px);
   font-weight: 400;
   line-height: 1;
   appearance: none;
   outline: none;
   cursor: pointer;
   user-select: none;
-  transition: transform .08s ease, filter .12s ease;
+  box-shadow: none;
+  transition: transform .08s ease, filter .12s ease, background-color .12s ease;
 }
 .key:active { transform: scale(.94); }
 .key.operator { background: var(--operator-bg); color: var(--accent); }
@@ -142,7 +145,8 @@ button { font: inherit; }
   grid-row: 5;
   background: var(--accent-strong);
   color: #fff;
-  font-size: clamp(31px, 7.2vw, 42px);
+  font-size: clamp(34px, 7.5vw, 44px);
+  font-weight: 500;
 }
 .key svg {
   width: clamp(31px, 7vw, 38px);
@@ -207,14 +211,18 @@ button { font: inherit; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-height: 820px) {
-  .topbar { flex-basis: 52px; }
-  .display { padding-bottom: 10px; }
-  .expression { font-size: 22px; }
-  .result { font-size: 54px; min-height: 58px; }
-  .watermark { margin-top: 9px; font-size: 12px; }
-  .keypad { flex-basis: 47dvh; gap: 8px; }
+  .topbar { flex-basis: 50px; }
+  .display { padding-bottom: 8px; }
+  .expression { font-size: 22px; min-height: 28px; }
+  .result { font-size: 54px; min-height: 56px; }
+  .watermark { margin-top: 7px; font-size: 12px; }
+  .keypad { flex-basis: clamp(400px, 50dvh, 500px); gap: 8px; }
   .key { font-size: 25px; }
-  .key.equals { font-size: 29px; }
+  .key.equals { font-size: 30px; }
+}
+
+@media (min-height: 900px) {
+  .keypad { flex-basis: min(46dvh, 690px); }
 }
 
 @media (max-width: 380px) {

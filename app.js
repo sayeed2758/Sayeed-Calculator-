@@ -244,10 +244,9 @@
     try {
       const result = String(calculate(expression));
       addHistory(expression, result);
-      expression = result;
-      expressionEl.textContent = result;
-      resultEl.textContent = "";
       justEvaluated = true;
+      expressionEl.textContent = expression;
+      resultEl.textContent = result;
       beep();
     } catch (error) {
       showToast(error.message || "Math error");
@@ -293,8 +292,16 @@
 
   function render() {
     expressionEl.textContent = expression || "0";
-    resultEl.textContent = expression && !justEvaluated ? "" : (expression ? resultEl.textContent : "0");
-    if (!expression) resultEl.textContent = "0";
+    if (!expression) {
+      resultEl.textContent = "0";
+      return;
+    }
+    if (justEvaluated) return;
+    try {
+      resultEl.textContent = String(calculate(expression));
+    } catch {
+      resultEl.textContent = "";
+    }
   }
 
   keypad.addEventListener("click", (event) => {
