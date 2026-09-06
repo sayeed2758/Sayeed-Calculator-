@@ -247,6 +247,7 @@
       justEvaluated = true;
       expressionEl.textContent = expression;
       resultEl.textContent = result;
+      resultEl.classList.add("final-result");
       beep();
     } catch (error) {
       showToast(error.message || "Math error");
@@ -292,6 +293,7 @@
 
   function render() {
     expressionEl.textContent = expression || "0";
+    resultEl.classList.remove("final-result");
     if (!expression) {
       resultEl.textContent = "0";
       return;

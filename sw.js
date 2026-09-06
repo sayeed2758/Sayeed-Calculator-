@@ -1,4 +1,4 @@
-const CACHE = "calculator-v5-professional";
+const CACHE = "calculator-v6-result-black";
 const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
