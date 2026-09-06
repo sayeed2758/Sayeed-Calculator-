@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const $ = (s) => document.querySelector(s);
+  const $ = (selector) => document.querySelector(selector);
 
   const expressionEl = $("#expression");
   const resultEl = $("#result");
@@ -14,8 +14,8 @@
   const soundToggle = $("#soundToggle");
 
   const STORAGE = {
-    history: "sayeed_calc_history_v2",
-    sound: "sayeed_calc_sound_v2"
+    history: "sayeed_calc_history_v3",
+    sound: "sayeed_calc_sound_v3"
   };
 
   let expression = "";
@@ -50,33 +50,36 @@
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioContext ||= new Ctx();
-      const o = audioContext.createOscillator();
-      const g = audioContext.createGain();
-      o.type = "sine";
-      o.frequency.value = 460;
-      g.gain.setValueAtTime(0.0001, audioContext.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.018, audioContext.currentTime + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.045);
-      o.connect(g).connect(audioContext.destination);
-      o.start();
-      o.stop(audioContext.currentTime + 0.05);
+      if (audioContext.state === "suspended") audioContext.resume();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 460;
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.016, audioContext.currentTime + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.045);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.05);
     } catch {}
   }
 
-  function cleanNumber(n) {
-    if (!Number.isFinite(n)) throw new Error("Math error");
-    if (Math.abs(n) < 1e-12) n = 0;
-    return Number(n.toPrecision(12)).toString();
+  function cleanNumber(number) {
+    if (!Number.isFinite(number)) throw new Error("Math error");
+    if (Math.abs(number) < 1e-12) number = 0;
+    return Number(number.toPrecision(12)).toString();
   }
 
   function tokenize(input) {
     const tokens = [];
     let i = 0;
+
     while (i < input.length) {
       const ch = input[i];
       if (/\s/.test(ch)) { i++; continue; }
+
       if (/[0-9.]/.test(ch)) {
-        let start = i;
+        const start = i;
         let dots = 0;
         while (i < input.length && /[0-9.]/.test(input[i])) {
           if (input[i] === ".") dots++;
@@ -88,20 +91,21 @@
         tokens.push({ type: "number", value: Number(raw) });
         continue;
       }
+
       if ("+-×÷*/%".includes(ch)) { tokens.push({ type: "op", value: ch }); i++; continue; }
       if (ch === "(") { tokens.push({ type: "lparen" }); i++; continue; }
       if (ch === ")") { tokens.push({ type: "rparen" }); i++; continue; }
       throw new Error("Invalid expression");
     }
+
     return tokens;
   }
 
   function precedence(op) {
-    if (op === "u+") return 3;
-    if (op === "u-") return 3;
-    if (op === "%") return 4;
-    if (op === "×" || op === "÷" || op === "*" || op === "/") return 2;
-    if (op === "+" || op === "−" || op === "-") return 1;
+    if (op === "u+" || op === "u-") return 4;
+    if (op === "%") return 5;
+    if (op === "×" || op === "÷" || op === "*" || op === "/") return 3;
+    if (op === "+" || op === "−" || op === "-") return 2;
     return 0;
   }
 
@@ -128,9 +132,9 @@
     const applyTop = () => {
       const op = ops.pop();
       if (op === "u+" || op === "u-") {
-        const v = values.pop();
-        if (v === undefined) throw new Error("Invalid expression");
-        values.push(op === "u-" ? -v : v);
+        const value = values.pop();
+        if (value === undefined) throw new Error("Invalid expression");
+        values.push(op === "u-" ? -value : value);
         return;
       }
       const b = values.pop();
@@ -153,12 +157,15 @@
       } else {
         let op = token.value;
         if (expectingValue && (op === "+" || op === "-" || op === "−")) op = op === "+" ? "u+" : "u-";
+
         if (op === "%") {
-          if (expectingValue) throw new Error("Invalid percent");
-          values.push(applyOp(values.pop(), 0, "%"));
+          const value = values.pop();
+          if (value === undefined) throw new Error("Invalid percent");
+          values.push(applyOp(value, 0, "%"));
           expectingValue = false;
           continue;
         }
+
         if (expectingValue && !op.startsWith("u")) throw new Error("Invalid expression");
         while (ops.length && ops.at(-1) !== "(" && precedence(ops.at(-1)) >= precedence(op)) applyTop();
         ops.push(op);
@@ -177,20 +184,19 @@
 
   function lastNumberStart(text) {
     let i = text.length - 1;
-    if (i < 0) return 0;
     while (i >= 0 && /[0-9.]/.test(text[i])) i--;
     return i + 1;
   }
 
   function append(value) {
     beep();
-    if (justEvaluated && /[0-9.]/.test(value)) expression = "";
+    if (justEvaluated && /[0-9.]/.test(value[0])) expression = "";
     justEvaluated = false;
 
     const last = expression.at(-1) || "";
     const binary = ["+", "−", "×", "÷"];
 
-    if (/[0-9.]/.test(value[0])) {
+    if (/^[0-9.]$/.test(value[0])) {
       const start = lastNumberStart(expression);
       const current = expression.slice(start);
       if (value === "." && current.includes(".")) return;
@@ -199,11 +205,11 @@
     }
 
     if (binary.includes(value)) {
-      if (!expression && value !== "−") return;
+      if (!expression) return;
       if (binary.includes(last)) expression = expression.slice(0, -1);
     }
 
-    if (value === "00" && (!expression || binary.includes(last) || last === "(")) value = "0";
+    if (value === "00" && (!expression || binary.includes(last))) value = "0";
     expression += value;
     render();
   }
@@ -228,6 +234,7 @@
     const start = lastNumberStart(expression);
     const number = expression.slice(start);
     if (!number) return;
+
     if (start > 0 && expression[start - 1] === "−") {
       const before = expression[start - 2] || "";
       if (start === 1 || ["+", "−", "×", "÷", "("].includes(before)) {
@@ -238,6 +245,7 @@
     } else {
       expression = expression.slice(0, start) + "−" + number;
     }
+
     render();
     beep();
   }
@@ -249,7 +257,8 @@
       const result = String(value);
       addHistory(expression, result);
       expression = result;
-      resultEl.textContent = result;
+      expressionEl.textContent = result;
+      resultEl.textContent = "";
       justEvaluated = true;
       beep();
     } catch (error) {
@@ -264,24 +273,25 @@
     saveHistory();
   }
 
-  function formatDate(ts) {
-    const d = new Date(ts);
-    return d.toISOString().slice(0, 10).replaceAll("-", ".");
+  function formatDate(timestamp) {
+    const d = new Date(timestamp);
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join(".");
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]));
   }
 
   function renderHistory() {
     historyList.innerHTML = "";
     historyEmpty.style.display = history.length ? "none" : "block";
+
     for (const item of history) {
       const row = document.createElement("article");
       row.className = "history-item";
       row.innerHTML = `<div class="history-date">${formatDate(item.at)}</div><div class="history-expression">${escapeHtml(item.expr)}</div><div class="history-result">=${escapeHtml(item.result)}</div>`;
       historyList.appendChild(row);
     }
-  }
-
-  function escapeHtml(text) {
-    return String(text).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   }
 
   function openPanel(panel) {
@@ -296,7 +306,8 @@
 
   function render() {
     expressionEl.textContent = expression || "0";
-    resultEl.textContent = expression ? "" : "0";
+    if (!expression) resultEl.textContent = "0";
+    else if (!justEvaluated) resultEl.textContent = "";
   }
 
   keypad.addEventListener("click", (event) => {
@@ -312,6 +323,7 @@
 
   $("#historyBtn").addEventListener("click", () => { renderHistory(); openPanel(historyPanel); });
   $("#settingsBtn").addEventListener("click", () => { syncSoundUI(); openPanel(settingsPanel); });
+
   $("#clearHistory").addEventListener("click", () => {
     history = [];
     saveHistory();
@@ -343,6 +355,7 @@
       }
       return;
     }
+
     if (/^[0-9.]$/.test(event.key)) append(event.key);
     else if (["+", "-", "*", "/"].includes(event.key)) append(event.key === "*" ? "×" : event.key === "/" ? "÷" : event.key === "-" ? "−" : "+");
     else if (event.key === "Enter" || event.key === "=") equals();
