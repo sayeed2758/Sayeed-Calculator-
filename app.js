@@ -12,10 +12,13 @@
   const historyList = $("#historyList");
   const historyEmpty = $("#historyEmpty");
   const soundToggle = $("#soundToggle");
+  const copyBtn = $("#copyBtn");
+  const shareBtn = $("#shareBtn");
+  const modeInfoBtn = $("#modeInfoBtn");
 
   const STORAGE = {
-    history: "sayeed_calc_history_v4",
-    sound: "sayeed_calc_sound_v4"
+    history: "sayeed_calc_history_v5",
+    sound: "sayeed_calc_sound_v5"
   };
 
   let expression = "";
@@ -284,6 +287,45 @@
     }
   }
 
+
+  function shareText() {
+    const expr = expression || "0";
+    let result = "0";
+    try { result = String(calculate(expr)); } catch { result = resultEl.textContent || "0"; }
+    return `Standard Calculator\n${expr} = ${result}\n\nMade With ❤️ By Shahid Sir`;
+  }
+
+  async function copyResult() {
+    const text = resultEl.textContent?.trim() || "0";
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Result copied");
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed"; area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      try { document.execCommand("copy"); showToast("Result copied"); } catch { showToast("Copy unavailable"); }
+      area.remove();
+    }
+    beep();
+  }
+
+  async function shareCalculation() {
+    const text = shareText();
+    if (navigator.share) {
+      try { await navigator.share({ title: "Standard Calculator", text }); }
+      catch (error) { if (error?.name !== "AbortError") showToast("Share unavailable"); }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("Calculation copied to share");
+      } catch { showToast("Sharing unavailable"); }
+    }
+    beep();
+  }
+
   function openPanel(panel) {
     panel.classList.remove("hidden");
     panel.setAttribute("aria-hidden", "false");
@@ -341,6 +383,11 @@
   });
 
   document.querySelectorAll("[data-memory]").forEach((button) => button.addEventListener("click", () => handleMemory(button.dataset.memory)));
+
+
+  copyBtn.addEventListener("click", copyResult);
+  shareBtn.addEventListener("click", shareCalculation);
+  modeInfoBtn.addEventListener("click", () => showToast("Standard calculator"));
 
   $("#historyBtn").addEventListener("click", () => { renderHistory(); openPanel(historyPanel); });
   $("#settingsBtn").addEventListener("click", () => { syncSoundUI(); openPanel(settingsPanel); });

@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#5b4ff4">
-  <meta name="description" content="A clean professional standard calculator.">
-  <meta name="application-name" content="Calculator">
+  <meta name="theme-color" content="#6457f6">
+  <meta name="description" content="A clean standard calculator by Shahid Sir.">
+  <meta name="application-name" content="Standard Calculator">
   <link rel="manifest" href="./manifest.webmanifest">
   <title>Standard Calculator</title>
   <link rel="stylesheet" href="./style.css">
@@ -26,9 +26,17 @@
 
     <section class="display-card" aria-live="polite">
       <div class="display-toolbar">
-        <span class="display-mode">STANDARD</span>
-        <div class="display-tools" aria-hidden="true">
-          <span></span><span></span><span></span>
+        <span class="display-mode">DEG</span>
+        <div class="display-tools" aria-label="Display actions">
+          <button class="display-tool brand-tool" id="modeInfoBtn" type="button" aria-label="Calculator mode" title="Standard mode">
+            <span></span>
+          </button>
+          <button class="display-tool" id="copyBtn" type="button" aria-label="Copy result" title="Copy result">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1.5"/><path d="M5 16V5.5A1.5 1.5 0 0 1 6.5 4H16"/></svg>
+          </button>
+          <button class="display-tool" id="shareBtn" type="button" aria-label="Share calculation" title="Share calculation">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.2"/><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="19" r="2.2"/><path d="m8 11 7.7-4.5M8 13l7.7 4.5"/></svg>
+          </button>
         </div>
       </div>
       <div class="display-values">
@@ -99,6 +107,10 @@
         <div class="setting-row">
           <div><div class="setting-title">Button sounds</div><div class="setting-subtitle">Play a soft tap sound</div></div>
           <button class="switch" id="soundToggle" type="button" aria-pressed="false"><span></span></button>
+        </div>
+        <div class="setting-row info-row">
+          <div><div class="setting-title">Standard mode</div><div class="setting-subtitle">Clean everyday calculations</div></div>
+          <span class="setting-check">✓</span>
         </div>
       </div>
     </div>
