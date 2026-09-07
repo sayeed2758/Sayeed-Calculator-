@@ -23,6 +23,7 @@
   let history = loadHistory();
   let soundOn = localStorage.getItem(STORAGE.sound) === "on";
   let audioContext = null;
+  let memory = Number(localStorage.getItem("sayeed_calc_memory_v1") || "0");
 
   function loadHistory() {
     try {
@@ -187,6 +188,8 @@
     const last = expression.at(-1) || "";
     const binary = ["+", "−", "×", "÷"];
 
+    if (value === "00") value = "00";
+
     if (/^[0-9.]$/.test(value[0])) {
       const start = lastNumberStart(expression);
       const current = expression.slice(start);
@@ -306,6 +309,26 @@
     }
   }
 
+  function currentNumber() {
+    if (!expression) return 0;
+    try { return Number(calculate(expression)); } catch { return 0; }
+  }
+
+  function handleMemory(action) {
+    beep();
+    if (action === "clear") memory = 0;
+    if (action === "recall") {
+      expression = cleanNumber(memory);
+      justEvaluated = false;
+    }
+    if (action === "add") memory += currentNumber();
+    if (action === "subtract") memory -= currentNumber();
+    if (action === "store") memory = currentNumber();
+    if (action !== "recall") localStorage.setItem("sayeed_calc_memory_v1", String(memory));
+    if (action === "recall") render();
+    showToast(action === "clear" ? "Memory cleared" : action === "recall" ? "Memory recalled" : "Memory saved");
+  }
+
   keypad.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
@@ -316,6 +339,8 @@
     if (action === "equals") return equals();
     if (button.dataset.value) append(button.dataset.value);
   });
+
+  document.querySelectorAll("[data-memory]").forEach((button) => button.addEventListener("click", () => handleMemory(button.dataset.memory)));
 
   $("#historyBtn").addEventListener("click", () => { renderHistory(); openPanel(historyPanel); });
   $("#settingsBtn").addEventListener("click", () => { syncSoundUI(); openPanel(settingsPanel); });

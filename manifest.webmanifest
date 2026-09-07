@@ -1,9 +1,9 @@
 {
-  "name": "Calculator",
+  "name": "Standard Calculator",
   "short_name": "Calculator",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "description": "A clean, smooth calculator."
+  "background_color": "#f7f8fc",
+  "theme_color": "#5b4ff4",
+  "description": "A clean professional standard calculator."
 }
